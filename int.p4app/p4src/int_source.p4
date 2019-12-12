@@ -12,6 +12,7 @@ control INT_source(inout headers hdr, inout metadata meta, inout standard_metada
         hdr.int_shim.setValid();
         hdr.int_shim.int_type = 8w1;
         hdr.int_shim.len = 8w3;
+        hdr.int_shim.dscp = hdr.ipv4.dscp;
 
         hdr.int_header.setValid();
         hdr.int_header.ver = 4w1;
@@ -26,8 +27,8 @@ control INT_source(inout headers hdr, inout metadata meta, inout standard_metada
         hdr.int_header.instruction_mask = ins_map;
         hdr.int_header.rsvd3 = 16w0;
 
-        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 16w16;
-        hdr.udp.len = hdr.udp.len + 16w16;
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 16w12;
+        hdr.udp.len = hdr.udp.len + 16w12;
 
         hdr.ipv4.dscp = 6w0x17;
     }

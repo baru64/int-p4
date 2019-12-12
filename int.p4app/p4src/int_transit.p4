@@ -16,13 +16,23 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
     action int_update_udp_ac() {
         hdr.udp.len = hdr.udp.len + (bit<16>)meta.int_meta.byte_cnt;
     }
-    action int_transit_config(bit<32> switch_id) {
-        // TODO ADD MTU
+    action int_transit_config(bit<32> switch_id, bit<16> l3_mtu) {
+        meta.int_meta.l3_mtu = l3_mtu;
         meta.int_meta.switch_id = switch_id;
         meta.int_meta.byte_cnt = (bit<16>) hdr.int_header.hop_metadata_len << 2;
         meta.int_meta.word_cnt = (bit<8>) hdr.int_header.hop_metadata_len;
     }
-    /****** INT ACTIONS *******/
+    action int_hop_cnt_decrement() {
+        hdr.int_header.remaining_hop_cnt = hdr.int_header.remaining_hop_cnt - 1;
+    }
+    action int_hop_cnt_exceeded() {
+        hdr.int_header.e = 1w1;
+    }
+    action int_mtu_exceeded() {
+        hdr.int_header.m = 1w1;
+    }
+
+    /****** INT HOP METADATA ACTIONS *******/
     action int_set_header_0() {
         hdr.int_switch_id.setValid();
         hdr.int_switch_id.switch_id = meta.int_meta.switch_id;
@@ -34,29 +44,28 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
     }
     action int_set_header_2() {
         hdr.int_hop_latency.setValid();
-        hdr.int_hop_latency.hop_latency =0x01;
+        hdr.int_hop_latency.hop_latency = (bit<32>)standard_metadata.deq_timedelta;
     }
     action int_set_header_3() {
         hdr.int_q_occupancy.setValid();
-        hdr.int_q_occupancy.q_id = 0xFF;
-        hdr.int_q_occupancy.q_occupancy = 0xFFFFFF;
+        hdr.int_q_occupancy.q_id = 0x00; // qid not defined in v1model
+        hdr.int_q_occupancy.q_occupancy = (bit<24>)standard_metadata.enq_qdepth;
     }
     action int_set_header_4() {
         hdr.int_ingress_tstamp.setValid();
-        hdr.int_ingress_tstamp.ingress_tstamp = (bit<32>)meta.intrinsic_metadata.ingress_timestamp;
+        hdr.int_ingress_tstamp.ingress_tstamp = (bit<32>)standard_metadata.ingress_global_timestamp;
     }
     action int_set_header_5() {
         hdr.int_egress_tstamp.setValid();
-        hdr.int_egress_tstamp.egress_tstamp = (bit<32>)meta.intrinsic_metadata.ingress_timestamp;
-        hdr.int_egress_tstamp.egress_tstamp = hdr.int_egress_tstamp.egress_tstamp + 32w1;
+        hdr.int_egress_tstamp.egress_tstamp = (bit<32>)standard_metadata.egress_global_timestamp;
     }
     action int_set_header_6() {
-        // NOT IMPLEMENTED
+        // no such metadata in v1model
         hdr.int_level2_port_ids.ingress_port_id = 32w0;
         hdr.int_level2_port_ids.egress_port_id = 32w0;
     }
     action int_set_header_7() {
-        // NOT IMPLEMENTED
+        // no such metadata in v1model
         hdr.int_egress_port_tx_util.egress_port_tx_util = 32w0;
     }
 
@@ -288,13 +297,19 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
     apply {
         if (hdr.udp.isValid() || hdr.tcp.isValid()) {
             if (hdr.int_header.isValid()) {
-                // TODO check remaining hop count
-                // TODO check if mtu exceeded
-                // TODO DECREMENT HOP COUNT
                 tb_int_transit.apply();
+                if (hdr.int_header.remaining_hop_cnt == 0 || hdr.int_header.e == 1) {
+                    int_hop_cnt_exceeded();
+                    return;
+                }
+                if ((hdr.ipv4.totalLen + meta.int_meta.byte_cnt) > meta.int_meta.l3_mtu) {
+                    int_mtu_exceeded();     
+                    return;
+                }
                 tb_int_inst_0003.apply();
                 tb_int_inst_0407.apply();
-
+                
+                int_hop_cnt_decrement();
                 int_update_ipv4_ac();
                 if (hdr.udp.isValid()) int_update_udp_ac();
                 if (hdr.int_shim.isValid()) int_update_shim_ac();

@@ -24,12 +24,26 @@ header udp_t {
     bit<16> csum;
 }
 
+header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<32> seqNum;
+    bit<32> ackNum;
+    bit<4>  dataOffset;
+    bit<3>  reserved;
+    bit<9>  flags;
+    bit<16> winSize;
+    bit<16> csum;
+    bit<16> urgPoint;
+}
+
 header ethernet_t {
     bit<48> dstAddr;
     bit<48> srcAddr;
     bit<16> etherType;
 }
 
+/* INT HEADER */
 header int_header_t {
     bit<4>  ver;
     bit<2>  rep;
@@ -44,7 +58,7 @@ header int_header_t {
     bit<16> rsvd3;
 }
 
-/* INT meta-value headers - different header for each value type */
+/* INT hop metadata headers */
 header int_switch_id_t {
     bit<32> switch_id;
 }
@@ -79,24 +93,13 @@ header int_egress_port_tx_util_t {
     bit<32> egress_port_tx_util;
 }
 
+/* INT SHIM */
 header intl4_shim_t {
     bit<8> int_type;
     bit<8> rsvd1;
     bit<8> len;
-    bit<8> rsvd2;
-}
-
-header tcp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<32> seqNum;
-    bit<32> ackNum;
-    bit<4>  dataOffset;
-    bit<3>  reserved;
-    bit<9>  flags;
-    bit<16> winSize;
-    bit<16> csum;
-    bit<16> urgPoint;
+    bit<6> dscp;
+    bit<2> rsvd2;
 }
 
 struct int_meta_t {
@@ -104,23 +107,13 @@ struct int_meta_t {
     bit<1>  transit;
     bit<1>  sink;
     bit<32> switch_id;
+    bit<16> l3_mtu;
     bit<16> byte_cnt;
     bit<8>  word_cnt;
 }
 
-struct internal_metadata_t {
-    bit<6>  dscp;
-    bit<10> INTlenB;
-}
-
-struct intrinsic_metadata_t {
-    bit<48> ingress_timestamp;
-}
-
 struct metadata {
     int_meta_t           int_meta;
-    internal_metadata_t  internal_metadata;
-    intrinsic_metadata_t intrinsic_metadata;
 }
 
 struct headers {
