@@ -58,6 +58,10 @@ header int_header_t {
     bit<16> rsvd3;
 }
 
+header int_data_t {
+    varbit<2048> data;
+}
+
 /* INT hop metadata headers */
 header int_switch_id_t {
     bit<32> switch_id;
@@ -131,6 +135,7 @@ struct headers {
     int_egress_tstamp_t         int_egress_tstamp;
     int_level2_port_ids_t       int_level2_port_ids;
     int_egress_port_tx_util_t   int_egress_port_tx_util;
+    int_data_t                  int_data;
 }
 
 #endif

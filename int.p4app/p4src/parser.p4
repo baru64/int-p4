@@ -14,13 +14,17 @@ parser ParserImpl(packet_in packet, out headers hdr, inout metadata meta, inout 
         }
     }
 
-    state parse_int_header {
-        packet.extract(hdr.int_header);
-        transition accept;
-    }
     state parse_int_shim {
         packet.extract(hdr.int_shim);
         transition parse_int_header;
+    }
+    state parse_int_header {
+        packet.extract(hdr.int_header);
+        transition parse_int_data;
+    }
+    state parse_int_data {
+        packet.extract(hdr.int_data, ((bit<32>)(hdr.int_shim.len - 3)) << 5);
+        transition accept;
     }
 
     state parse_ipv4 {
@@ -72,6 +76,9 @@ control DeparserImpl(packet_out packet, in headers hdr) {
         packet.emit(hdr.int_egress_tstamp);
         packet.emit(hdr.int_level2_port_ids);
         packet.emit(hdr.int_egress_port_tx_util);
+
+        // int data
+        packet.emit(hdr.int_data);
     }
 }
 
