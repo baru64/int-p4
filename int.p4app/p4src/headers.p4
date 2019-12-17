@@ -106,6 +106,25 @@ header intl4_shim_t {
     bit<2> rsvd2;
 }
 
+/* TELEMETRY REPORT */
+header report_fixed_header_t {
+    bit<4> ver;
+    bit<4> len;
+    bit<3> nprot;
+    bit<6> rep_md_bits;
+    bit<6> reserved;
+    bit<1> d;
+    bit<1> q;
+    bit<1> f;
+    bit<6> hw_id;
+    bit<32> switch_id;
+    bit<32> seq_num;
+    bit<32> ingress_tstamp;
+}
+
+const bit<8> REPORT_FIXED_HEADER_LEN = 16;
+
+/* INT METADATA */
 struct int_meta_t {
     bit<1>  source;
     bit<1>  transit;
@@ -116,15 +135,23 @@ struct int_meta_t {
     bit<8>  word_cnt;
 }
 
+/*************/
 struct metadata {
     int_meta_t           int_meta;
 }
 
 struct headers {
+    // INT report headers
+    ethernet_t                  report_ethernet;
+    ipv4_t                      report_ipv4;
+    udp_t                       report_udp;
+    report_fixed_header_t       report_fixed_header;
+    // normal headers
     ethernet_t                  ethernet;
     ipv4_t                      ipv4;
     tcp_t                       tcp;
     udp_t                       udp;
+    // INT headers
     intl4_shim_t                int_shim;
     int_header_t                int_header;
     int_switch_id_t             int_switch_id;

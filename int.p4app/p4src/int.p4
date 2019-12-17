@@ -27,6 +27,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
         }
         if (meta.int_meta.sink == 1w1) {
             // clone packet for INT report
+            // clone session id 100
             clone3(CloneType.I2E, 100, standard_metadata);
         }
 	}
@@ -43,11 +44,12 @@ control egress(inout headers hdr, inout metadata meta, inout standard_metadata_t
 
             // instance type 0 -> NORMAL, instance type 1 -> ingress clone
             if (standard_metadata.instance_type == 1) {
-                // send report to INT collector
+                // encapsulate and send report to INT collector
                 int_report.apply(hdr, meta, standard_metadata);
             }
             if ((meta.int_meta.sink == 1w1) &&
                 (standard_metadata.instance_type != 1)) {
+                // remove INT data
                 int_sink_egress.apply(hdr, meta, standard_metadata);
             }
         }

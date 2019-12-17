@@ -3,3 +3,4 @@ table_add tb_forward send_to_port 00:00:00:00:01:01&&&0xFFFFFFFF => 2 10
 table_add tb_int_transit int_transit_config => 2 1500
 table_add tb_set_sink set_sink 1 =>
 mirroring_add 100 3
+table_add tb_make_report make_report => 00:00:00:00:02:02 00:00:00:00:03:03 10.0.2.2 10.0.3.3 9555

@@ -60,10 +60,17 @@ parser ParserImpl(packet_in packet, out headers hdr, inout metadata meta, inout 
 
 control DeparserImpl(packet_out packet, in headers hdr) {
     apply {
+        // raport headers
+        packet.emit(hdr.report_ethernet);
+        packet.emit(hdr.report_ipv4);
+        packet.emit(hdr.report_udp);
+        packet.emit(hdr.report_fixed_header);
+        // original headers
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
         packet.emit(hdr.udp);
         packet.emit(hdr.tcp);
+        // int header
         packet.emit(hdr.int_shim);
         packet.emit(hdr.int_header);
         
@@ -110,7 +117,17 @@ control computeChecksum(inout headers hdr, inout metadata meta) {
             hdr.udp.csum,
             HashAlgorithm.csum16
         );
+        /* INT REPORT UDP CHECKSUM */
+        update_checksum(
+            hdr.report_udp.isValid(),
+            {
+                hdr.report_udp.srcPort, hdr.report_udp.dstPort, hdr.report_udp.len
+            },
+            hdr.report_udp.csum,
+            HashAlgorithm.csum16
+        );
         /* TCP CHECKSUM */
+        // DOESN'T WORK
         // update_checksum_with_payload(
         //     hdr.tcp.isValid(),
         //     {
