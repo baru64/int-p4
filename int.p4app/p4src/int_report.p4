@@ -1,4 +1,9 @@
+// register to store seq_num
+register<bit<32>> (1) report_seq_num_register;
+
 control INT_report(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+
+    bit<32> seq_num_value = 0;
 
     action make_report(
         bit<48> src_mac, bit<48> dst_mac,
@@ -62,7 +67,9 @@ control INT_report(inout headers hdr, inout metadata meta, inout standard_metada
         // hw_id - specific to the switch, e.g. id of linecard
         hdr.report_fixed_header.hw_id = 0;
         hdr.report_fixed_header.switch_id = meta.int_meta.switch_id;
-        hdr.report_fixed_header.seq_num = 0; // TODO add counter
+        report_seq_num_register.read(seq_num_value, 0);
+        hdr.report_fixed_header.seq_num = seq_num_value;
+        report_seq_num_register.write(0, seq_num_value + 1);
         hdr.report_fixed_header.ingress_tstamp = (bit<32>)standard_metadata.ingress_global_timestamp;
         
         // Original packet headers, INT shim and INT data come after report header.
