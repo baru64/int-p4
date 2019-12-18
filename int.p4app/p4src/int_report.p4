@@ -9,9 +9,9 @@ control INT_report(inout headers hdr, inout metadata meta, inout standard_metada
         // [Eth][IP][UDP][INT RAPORT HDR][ETH][IP][UDP/TCP][INT SHIM][INT DATA]
         // Ethernet **********************************************************
         hdr.report_ethernet.setValid();
-        hdr.report_ethernet.dst_addr = dst_mac;
-        hdr.report_ethernet.src_addr = src_mac;
-        hdr.report_ethernet.ether_type = 0x0800;
+        hdr.report_ethernet.dstAddr = dst_mac;
+        hdr.report_ethernet.srcAddr = src_mac;
+        hdr.report_ethernet.etherType = 0x0800;
 
         // IPv4 **************************************************************
         hdr.report_ipv4.setValid();
@@ -60,21 +60,20 @@ control INT_report(inout headers hdr, inout metadata meta, inout standard_metada
         // f - indicates that report is for tracked flow, INT data is present
         hdr.report_fixed_header.f = 1;
         // hw_id - specific to the switch, e.g. id of linecard
-        hdr.report_fixed_header.hd_id = 0;
+        hdr.report_fixed_header.hw_id = 0;
         hdr.report_fixed_header.switch_id = meta.int_meta.switch_id;
         hdr.report_fixed_header.seq_num = 0; // TODO add counter
         hdr.report_fixed_header.ingress_tstamp = (bit<32>)standard_metadata.ingress_global_timestamp;
         
         // Original packet headers, INT shim and INT data come after report header.
         // drop all data besides int report and report eth header
-        truncate((bit<32>)hdr.report_ipv4.len + 14);
+        truncate((bit<32>)hdr.report_ipv4.totalLen + 14);
     }
 
-    table tb_make_report() {
+    table tb_make_report {
         actions = {
             make_report;
         }
-        default_action = make_report();
     }
 
     apply {

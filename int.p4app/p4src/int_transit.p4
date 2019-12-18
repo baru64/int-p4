@@ -224,7 +224,6 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
             int_set_header_0003_i15;
         }
         default_action = int_set_header_0003_i0();
-        size = 16;
         const entries = {
             0x00 &&& 0xF0 : int_set_header_0003_i0();
             0x10 &&& 0xF0 : int_set_header_0003_i1();
@@ -267,7 +266,6 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
         key = {
             hdr.int_header.instruction_mask: ternary;
         }
-        size = 16;
         const entries = {
             0x00 &&& 0x0F : int_set_header_0407_i0();
             0x01 &&& 0x0F : int_set_header_0407_i1();
