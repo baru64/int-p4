@@ -45,7 +45,7 @@ control INT_report(inout headers hdr, inout metadata meta, inout standard_metada
 
         // UDP ***************************************************************
         hdr.report_udp.setValid();
-        hdr.report_udp.srcPort = 0;
+        hdr.report_udp.srcPort = 2048;
         hdr.report_udp.dstPort = dst_port;
         // ipv4 header + 2x udp header + eth header + report header + int data len
         // hdr.report_udp.len = (bit<16>)(20 + 8 + 8 + 14)

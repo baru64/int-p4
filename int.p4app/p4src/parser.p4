@@ -109,23 +109,24 @@ control computeChecksum(inout headers hdr, inout metadata meta) {
             HashAlgorithm.csum16
         );
         /* UDP CHECKSUM */
-        update_checksum(
-            hdr.udp.isValid(),
-            {
-                hdr.udp.srcPort, hdr.udp.dstPort, hdr.udp.len
-            },
-            hdr.udp.csum,
-            HashAlgorithm.csum16
-        );
-        /* INT REPORT UDP CHECKSUM */
-        update_checksum(
-            hdr.report_udp.isValid(),
-            {
-                hdr.report_udp.srcPort, hdr.report_udp.dstPort, hdr.report_udp.len
-            },
-            hdr.report_udp.csum,
-            HashAlgorithm.csum16
-        );
+        // DOESN'T WORK
+        // update_checksum(
+        //     hdr.udp.isValid(),
+        //     {
+        //         hdr.udp.srcPort, hdr.udp.dstPort, hdr.udp.len
+        //     },
+        //     hdr.udp.csum,
+        //     HashAlgorithm.csum16
+        // );
+        // /* INT REPORT UDP CHECKSUM */
+        // update_checksum(
+        //     hdr.report_udp.isValid(),
+        //     {
+        //         hdr.report_udp.srcPort, hdr.report_udp.dstPort, hdr.report_udp.len
+        //     },
+        //     hdr.report_udp.csum,
+        //     HashAlgorithm.csum16
+        // );
         /* TCP CHECKSUM */
         // DOESN'T WORK
         // update_checksum_with_payload(

@@ -23,7 +23,8 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
 		forward.apply(hdr, meta, standard_metadata);
 		if (hdr.udp.isValid() || hdr.tcp.isValid()) {
 		    int_source.apply(hdr, meta, standard_metadata);
-            int_sink_ingress.apply(hdr, meta, standard_metadata);
+            if (hdr.int_header.isValid())
+                int_sink_ingress.apply(hdr, meta, standard_metadata);
         }
         if (meta.int_meta.sink == 1w1) {
             // clone packet for INT report
