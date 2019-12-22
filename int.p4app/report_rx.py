@@ -1,6 +1,8 @@
 import io
 import socket
 
+from prometheus_client import start_http_server, Gauge
+
 OFFSET = 14 + 20 + 8
 SWITCH_ID_BIT = 0b10000000
 L1_PORT_IDS_BIT = 0b01000000
@@ -116,6 +118,7 @@ class FlowInfo():
     def __init__(self):
         # flow id - 5 tuple: (src_ip, dst_ip, src_port, dst_port, ip_proto)
         self.flow_id = None
+        self.hop_cnt = 0
         
         self.switch_ids = []
         self.l1_ingress_port_ids = []
@@ -133,6 +136,7 @@ class FlowInfo():
     def from_report(report: Report):
         flow = FlowInfo()
         flow.flow_id = report.flow_id
+        flow.hop_cnt = len(report.hop_metadata)
         
         for hop in report.hop_metadata:
             if hop.switch_id:
@@ -165,6 +169,24 @@ class Collector():
 
 HOST = ''
 PORT = 9555
+HOP_METADATA = (
+    'switch_id',
+    'l1_ingress_port_id',
+    'l1_egress_port_id',
+    'hop_latency',
+    'q_id',
+    'q_occupancy',
+    'ingress_tstamp',
+    'egress_tstamp',
+    'l2_ingress_port_id',
+    'l2_egress_port_id',
+    'egress_port_tx_util'
+)
+
+FLOW_METRICS = Gauge("flow_info", "Flow metrics")
+
+def ip2str(ip):
+    return "{}.{}.{}.{}".format(ip[0],ip[1],ip[2],ip[3])
 
 def receiver():
     # temporary
@@ -177,12 +199,47 @@ def receiver():
                 print("-- Received report from {} --------".format(addr))
                 rep = Report(data)
                 print(rep)
-                # TODO update collector data
+                
                 new_flow = FlowInfo.from_report(rep)
                 collector.flow_table[new_flow.flow_id] = new_flow
                 print(collector.flow_table)
+
+                for hop in range(len(new_flow.hop_cnt)):
+                    if new_flow.switch_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id(0)),
+                                dst_ip=ip2str(new_flow.flow_id(1)),
+                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
+                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                hop_num=str(hop),
+                                metadata='switch_id'
+                        ).set(new_flow.switch_ids[i])
+                    if new_flow.l1_ingress_port_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id(0)),
+                                dst_ip=ip2str(new_flow.flow_id(1)),
+                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
+                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                hop_num=str(hop),
+                                metadata='l1_ingress_port_id'
+                        ).set(new_flow.l1_ingress_port_ids[i])
+                    if new_flow.l1_egress_port_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id(0)),
+                                dst_ip=ip2str(new_flow.flow_id(1)),
+                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
+                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                hop_num=str(hop),
+                                metadata='l1_egress_port_id'
+                        ).set(new_flow.l1_egress_port_ids[i])
+                        # TODO REST OF METADATA
+                
         except KeyboardInterrupt:
             s.close()
 
 if __name__ == "__main__":
+    start_http_server(8000)
     receiver()
