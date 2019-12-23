@@ -183,7 +183,10 @@ HOP_METADATA = (
     'egress_port_tx_util'
 )
 
-FLOW_METRICS = Gauge("flow_info", "Flow metrics")
+FLOW_METRICS = Gauge(
+    "flow_info", "Flow metrics",
+    ['src_ip','dst_ip','src_port','dst_port','protocol','hop_num','metadata']
+)
 
 def ip2str(ip):
     return "{}.{}.{}.{}".format(ip[0],ip[1],ip[2],ip[3])
@@ -204,39 +207,118 @@ def receiver():
                 collector.flow_table[new_flow.flow_id] = new_flow
                 print(collector.flow_table)
 
-                for hop in range(len(new_flow.hop_cnt)):
+                for hop in range(new_flow.hop_cnt):
                     if new_flow.switch_ids:
                         FLOW_METRICS.labels(
-                                src_ip=ip2str(new_flow.flow_id(0)),
-                                dst_ip=ip2str(new_flow.flow_id(1)),
-                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
-                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
-                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
                                 hop_num=str(hop),
                                 metadata='switch_id'
-                        ).set(new_flow.switch_ids[i])
+                        ).set(new_flow.switch_ids[hop])
                     if new_flow.l1_ingress_port_ids:
                         FLOW_METRICS.labels(
-                                src_ip=ip2str(new_flow.flow_id(0)),
-                                dst_ip=ip2str(new_flow.flow_id(1)),
-                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
-                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
-                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
                                 hop_num=str(hop),
                                 metadata='l1_ingress_port_id'
-                        ).set(new_flow.l1_ingress_port_ids[i])
+                        ).set(new_flow.l1_ingress_port_ids[hop])
                     if new_flow.l1_egress_port_ids:
                         FLOW_METRICS.labels(
-                                src_ip=ip2str(new_flow.flow_id(0)),
-                                dst_ip=ip2str(new_flow.flow_id(1)),
-                                src_port=str(int.from_bytes(new_flow.flow_id(2), byteorder='big')),
-                                dst_port=str(int.from_bytes(new_flow.flow_id(3), byteorder='big')),
-                                protocol=str(int.from_bytes(new_flow.flow_id(4), byteorder='big')),
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
                                 hop_num=str(hop),
                                 metadata='l1_egress_port_id'
-                        ).set(new_flow.l1_egress_port_ids[i])
-                        # TODO REST OF METADATA
-                
+                        ).set(new_flow.l1_egress_port_ids[hop])
+                    if new_flow.hop_latencies:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='hop_latency'
+                        ).set(new_flow.hop_latencies[hop])
+                    if new_flow.q_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='q_id'
+                        ).set(new_flow.q_ids[hop])
+                    if new_flow.q_occups:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='q_occupancy'
+                        ).set(new_flow.q_occups[hop])
+                    if new_flow.ingress_tstamps:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='ingress_tstamp'
+                        ).set(new_flow.ingress_tstamps[hop])
+                    if new_flow.egress_tstamps:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='egress_tstamp'
+                        ).set(new_flow.egress_tstamps[hop])
+                    if new_flow.l2_ingress_port_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='l2_ingress_port_id'
+                        ).set(new_flow.l2_ingress_port_ids[hop])
+                    if new_flow.l2_egress_port_ids:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='l2_egress_port_id'
+                        ).set(new_flow.l2_egress_port_ids[hop])
+                    if new_flow.egress_port_tx_utils:
+                        FLOW_METRICS.labels(
+                                src_ip=ip2str(new_flow.flow_id[0]),
+                                dst_ip=ip2str(new_flow.flow_id[1]),
+                                src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
+                                dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
+                                protocol=str(int(new_flow.flow_id[4])),
+                                hop_num=str(hop),
+                                metadata='egress_port_tx_utils'
+                        ).set(new_flow.egress_port_tx_utils[hop])
+        
         except KeyboardInterrupt:
             s.close()
 
