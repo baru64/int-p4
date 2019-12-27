@@ -1,0 +1,9 @@
+global:
+  external_labels:
+    monitor: 'p4_int'
+
+scrape_configs:
+  - job_name: 'int'
+    scrape_interval: 1s
+    static_configs:
+      - targets: ['int:8000']

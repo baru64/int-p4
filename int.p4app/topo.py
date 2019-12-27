@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from mininet.net import Mininet
+from mininet.link import Intf
 from mininet.topo import Topo
 from mininet.log import setLogLevel
 from mininet.cli import CLI
@@ -99,7 +100,20 @@ def main():
                   controller = None,
                   autoStaticArp=True)
 
+    print "create veth pair on mininet host"
+    subprocess.Popen(['/bin/bash', '-c', '/scripts/add_veth.sh'])
+    print "add veth to h3"
+    h3 = net.get('h3')
+    _intf = Intf('int-veth1', node=h3)
+    h3.cmd("ip addr add 10.0.128.3/24 dev int-veth1")
+    h3.cmd("ip link set up int-veth1")
+    
     net.start()
+    
+    print "run report collector on h3"
+    h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
+    print "forward collector metrics outside"
+    subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
 
     for n in xrange(nb_hosts):
         h = net.get('h%d' % (n + 1))
