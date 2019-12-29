@@ -3,7 +3,10 @@ import socket
 
 from prometheus_client import start_http_server, Gauge
 
-OFFSET = 14 + 20 + 8
+# ethernet(14B) + IP(20B) + UDP(8B)
+UDP_OFFSET = 14 + 20 + 8
+# ethernet(14B) + IP(20B) + TCP(20B)
+TCP_OFFSET = 14 + 20 + 20
 SWITCH_ID_BIT =             0b10000000
 L1_PORT_IDS_BIT =           0b01000000
 HOP_LATENCY_BIT =           0b00100000
@@ -31,6 +34,7 @@ class HopMetadata():
     def from_bytes(data, ins_map):
         hop = HopMetadata()
         d = io.BytesIO(data)
+        print('received hop metadata:', data)
         if ins_map & SWITCH_ID_BIT:
             hop.switch_id = int.from_bytes(d.read(4), byteorder='big')
         if ins_map & L1_PORT_IDS_BIT:
@@ -39,7 +43,7 @@ class HopMetadata():
         if ins_map & HOP_LATENCY_BIT:
             hop.hop_latency = int.from_bytes(d.read(4), byteorder='big')
         if ins_map & QUEUE_BIT:
-            hop.q_id = int(d.read(1), byteorder='big')
+            hop.q_id = int.from_bytes(d.read(1), byteorder='big')
             hop.q_occupancy = int.from_bytes(d.read(3), byteorder='big')
         if ins_map & INGRESS_TSTAMP_BIT:
             hop.ingress_tstamp = int.from_bytes(d.read(4), byteorder='big')
@@ -74,6 +78,7 @@ class Report():
         # flow id
         ip_hdr = data[30:50]
         udp_hdr = data[50:58]
+        protocol = ip_hdr[9]
         self.flow_id = (
             ip_hdr[12:16],  # src_ip
             ip_hdr[16:20],  # dst_ip
@@ -82,18 +87,26 @@ class Report():
             ip_hdr[9]       # protocol
         )
 
+        # check next protocol
+        # offset: udp/tcp + report header(16B)
+        offset = 16
+        if protocol == 17:
+            offset = offset + UDP_OFFSET
+        if protocol == 6:
+            offset = offset + TCP_OFFSET
+
         # int shim
-        self.int_shim = data[OFFSET + 16:OFFSET + 20]
+        self.int_shim = data[offset:offset + 4]
         self.int_data_len = int(self.int_shim[2]) - 3
 
         # int header
-        self.int_hdr = data[OFFSET + 20:OFFSET + 28]
+        self.int_hdr = data[offset + 4:offset + 12]
         self.hop_data_len = int(self.int_hdr[2] & 0x1f)
         self.ins_map = int.from_bytes(self.int_hdr[4:6], byteorder='big')
         self.hop_count = int(self.int_data_len / self.hop_data_len)
 
         # int metadata
-        self.int_meta = data[OFFSET + 28:]
+        self.int_meta = data[offset + 12:]
         print(self.int_meta)
         self.hop_metadata = []
         for i in range(self.hop_count):

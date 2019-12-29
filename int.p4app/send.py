@@ -42,7 +42,8 @@ def read_topo():
 def send_random_traffic(dst):
     dst_mac = None
     dst_ip = None
-    src_mac = [get_if_hwaddr(i) for i in get_if_list() if i == 'eth0']
+    iface = [i for i in get_if_list() if 'eth0' in i][0]
+    src_mac = [get_if_hwaddr(i) for i in get_if_list() if 'eth0' in i]
     if len(src_mac) < 1:
         print ("No interface for output")
         sys.exit(1)
@@ -74,16 +75,16 @@ def send_random_traffic(dst):
     total_pkts = 0
     random_ports = random.sample(xrange(1024, 65535), 11)
     for port in random_ports:
-        # num_packets = random.randint(50, 250)
-        num_packets = 1
+        num_packets = random.randint(50, 250)
+        # num_packets = 1
         for i in range(num_packets):
-            # data = randomword(100)
-            data = randomword(1)
+            data = randomword(100)
+            # data = randomword(1)
             p = Ether(dst=dst_mac,src=src_mac)/IP(dst=dst_ip,src=src_ip)
             p = p/UDP(dport=port)/Raw(load=data)
             # p = p/TCP(dport=port)/Raw(load=data)
             print p.show()
-            sendp(p, iface = "eth0")
+            sendp(p, iface = iface)
             total_pkts += 1
     print "Sent %s packets in total" % total_pkts
 

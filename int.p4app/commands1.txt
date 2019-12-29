@@ -1,5 +1,5 @@
 table_add tb_forward send_to_port 00:00:00:00:02:02&&&0xFFFFFFFF => 2 10
 table_add tb_forward send_to_port 00:00:00:00:01:01&&&0xFFFFFFFF => 1 10
 table_add tb_set_source int_set_source 1 =>
-table_add tb_int_source int_source 10.0.1.1&&&0xFFFFFFFF 10.0.2.2&&&0xFFFFFFFF => 4 1 0x80 10
+table_add tb_int_source int_source 10.0.1.1&&&0xFFFFFFFF 10.0.2.2&&&0xFFFFFFFF => 4 6 0xFC 10
 table_add tb_int_transit int_transit_config => 1 1500
