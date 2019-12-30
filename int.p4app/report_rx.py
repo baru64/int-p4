@@ -1,5 +1,4 @@
-import io
-import socket
+import io, sys, signal, time, socket
 
 from prometheus_client import start_http_server, Gauge
 
@@ -7,6 +6,7 @@ from prometheus_client import start_http_server, Gauge
 UDP_OFFSET = 14 + 20 + 8
 # ethernet(14B) + IP(20B) + TCP(20B)
 TCP_OFFSET = 14 + 20 + 20
+
 SWITCH_ID_BIT =             0b10000000
 L1_PORT_IDS_BIT =           0b01000000
 HOP_LATENCY_BIT =           0b00100000
@@ -15,6 +15,35 @@ INGRESS_TSTAMP_BIT =        0b00001000
 EGRESS_TSTAMP_BIT =         0b00000100
 L2_PORT_IDS_BIT =           0b00000010
 EGRESS_PORT_TX_UTIL_BIT =   0b00000001
+
+# host,port for UDP report receiver
+HOST = ''
+PORT = 9555
+
+HOP_METADATA = (
+    'switch_id',
+    'l1_ingress_port_id',
+    'l1_egress_port_id',
+    'hop_latency',
+    'q_id',
+    'q_occupancy',
+    'ingress_tstamp',
+    'egress_tstamp',
+    'l2_ingress_port_id',
+    'l2_egress_port_id',
+    'egress_port_tx_util'
+)
+
+# prometheus metric
+FLOW_METRICS = Gauge(
+    "flow_info", "Flow metrics",
+    ['src_ip','dst_ip','src_port','dst_port','protocol','hop_num','metadata']
+)
+
+DEBUG = False
+TIMER = False
+
+###### CLASSESS ###############################################################
 
 class HopMetadata():
     def __init__(self):
@@ -180,45 +209,37 @@ class Collector():
     def __init__(self):
         self.flow_table = {}
 
-HOST = ''
-PORT = 9555
-HOP_METADATA = (
-    'switch_id',
-    'l1_ingress_port_id',
-    'l1_egress_port_id',
-    'hop_latency',
-    'q_id',
-    'q_occupancy',
-    'ingress_tstamp',
-    'egress_tstamp',
-    'l2_ingress_port_id',
-    'l2_egress_port_id',
-    'egress_port_tx_util'
-)
+class GracefulKiller:
+    kill_now = False
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
 
-FLOW_METRICS = Gauge(
-    "flow_info", "Flow metrics",
-    ['src_ip','dst_ip','src_port','dst_port','protocol','hop_num','metadata']
-)
+    def exit_gracefully(self, signum, frame):
+        self.kill_now = True
+
+###### FUNCTIONS ##############################################################
 
 def ip2str(ip):
     return "{}.{}.{}.{}".format(ip[0],ip[1],ip[2],ip[3])
 
 def receiver():
-    # temporary
     collector = Collector()
+    killer = GracefulKiller()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.bind((HOST, PORT))
         try:
-            while True:
+            while not killer.kill_now:
                 data, addr = s.recvfrom(512)
-                print("-- Received report from {} --------".format(addr))
+                if TIMER: t1 = time.time()
                 rep = Report(data)
-                print(rep)
+                if DEBUG:
+                    print("-- Received report from {} --------".format(addr))
+                    print(rep)
                 
                 new_flow = FlowInfo.from_report(rep)
                 collector.flow_table[new_flow.flow_id] = new_flow
-                print(collector.flow_table)
+                if DEBUG: print(collector.flow_table)
 
                 for hop in range(new_flow.hop_cnt):
                     if new_flow.switch_ids:
@@ -331,10 +352,17 @@ def receiver():
                                 hop_num=str(hop),
                                 metadata='egress_port_tx_utils'
                         ).set(new_flow.egress_port_tx_utils[hop])
+                if TIMER:
+                    t2 = time.time()
+                    print("\rReports per second: {}".format(1/(t2-t1)), end='')
         
         except KeyboardInterrupt:
             s.close()
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--debug': DEBUG = True
+        if sys.argv[1] == '--time': TIMER = True
+
     start_http_server(8000)
     receiver()

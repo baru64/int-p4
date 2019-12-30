@@ -16,6 +16,7 @@
 
 from scapy.all import Ether, IP, sendp, get_if_hwaddr, get_if_list, TCP, Raw, UDP
 import sys
+import time
 import random, string
 
 def randomword(max_length):
@@ -74,6 +75,7 @@ def send_random_traffic(dst):
 
     total_pkts = 0
     random_ports = random.sample(xrange(1024, 65535), 11)
+    t1 = time.time()
     for port in random_ports:
         num_packets = random.randint(50, 250)
         # num_packets = 1
@@ -83,10 +85,12 @@ def send_random_traffic(dst):
             p = Ether(dst=dst_mac,src=src_mac)/IP(dst=dst_ip,src=src_ip)
             p = p/UDP(dport=port)/Raw(load=data)
             # p = p/TCP(dport=port)/Raw(load=data)
-            print p.show()
+            # print p.show()
             sendp(p, iface = iface)
             total_pkts += 1
+    t2 = time.time()
     print "Sent %s packets in total" % total_pkts
+    print "Packets per second: %f" % (total_pkts/(t2-t1))
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
