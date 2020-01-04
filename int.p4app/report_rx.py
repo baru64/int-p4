@@ -37,7 +37,7 @@ HOP_METADATA = (
 # prometheus metric
 FLOW_METRICS = Gauge(
     "flow_info", "Flow metrics",
-    ['src_ip','dst_ip','src_port','dst_port','protocol','hop_num','metadata']
+    ['src_ip','dst_ip','src_port','dst_port','protocol','switch_id','metadata']
 )
 
 DEBUG = False
@@ -181,28 +181,31 @@ class FlowInfo():
         flow.hop_cnt = len(report.hop_metadata)
         
         for hop in report.hop_metadata:
-            if hop.switch_id:
+            if hop.switch_id is not None:
                 flow.switch_ids.append(hop.switch_id)
-            if hop.l1_ingress_port_id:
+            if hop.l1_ingress_port_id is not None:
                 flow.l1_ingress_port_ids.append(hop.l1_ingress_port_id)
-            if hop.l1_egress_port_id:
+            if hop.l1_egress_port_id is not None:
                 flow.l1_egress_port_ids.append(hop.l1_egress_port_id)
-            if hop.hop_latency:
+            if hop.hop_latency is not None:
                 flow.hop_latencies.append(hop.hop_latency)
-            if hop.q_id:
+            if hop.q_id is not None:
                 flow.q_ids.append(hop.q_id)
                 flow.q_occups.append(hop.q_occupancy)
-            if hop.ingress_tstamp:
+            if hop.ingress_tstamp is not None:
                 flow.ingress_tstamps.append(hop.ingress_tstamp)
-            if hop.egress_tstamp:
+            if hop.egress_tstamp is not None:
                 flow.egress_tstamps.append(hop.egress_tstamp)
-            if hop.l2_ingress_port_id:
+            if hop.l2_ingress_port_id is not None:
                 flow.l2_ingress_port_ids.append(hop.l2_ingress_port_id)
                 flow.l2_egress_port_ids.append(hop.l2_egress_port_id)
-            if hop.egress_port_tx_util:
+            if hop.egress_port_tx_util is not None:
                 flow.egress_port_tx_utils.append(hop.egress_port_tx_util)
 
         return flow
+
+    def __str__(self):
+        return str(vars(self))
 
 class Collector():
 
@@ -217,6 +220,7 @@ class GracefulKiller:
 
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
+        print("Got signal, quitting")
 
 ###### FUNCTIONS ##############################################################
 
@@ -239,7 +243,7 @@ def receiver():
                 
                 new_flow = FlowInfo.from_report(rep)
                 collector.flow_table[new_flow.flow_id] = new_flow
-                if DEBUG: print(collector.flow_table)
+                if DEBUG: print(new_flow)
 
                 for hop in range(new_flow.hop_cnt):
                     if new_flow.switch_ids:
@@ -249,9 +253,9 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
-                                metadata='switch_id'
-                        ).set(new_flow.switch_ids[hop])
+                                switch_id=new_flow.switch_ids[hop],
+                                metadata='hop_num'
+                        ).set(str(hop))
                     if new_flow.l1_ingress_port_ids:
                         FLOW_METRICS.labels(
                                 src_ip=ip2str(new_flow.flow_id[0]),
@@ -259,7 +263,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='l1_ingress_port_id'
                         ).set(new_flow.l1_ingress_port_ids[hop])
                     if new_flow.l1_egress_port_ids:
@@ -269,7 +273,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='l1_egress_port_id'
                         ).set(new_flow.l1_egress_port_ids[hop])
                     if new_flow.hop_latencies:
@@ -279,17 +283,18 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='hop_latency'
                         ).set(new_flow.hop_latencies[hop])
                     if new_flow.q_ids:
+                        print(">>>>>> SETTIN QUEUE!!!!!!!!!!!!!!!!!!")
                         FLOW_METRICS.labels(
                                 src_ip=ip2str(new_flow.flow_id[0]),
                                 dst_ip=ip2str(new_flow.flow_id[1]),
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='q_id'
                         ).set(new_flow.q_ids[hop])
                     if new_flow.q_occups:
@@ -299,7 +304,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='q_occupancy'
                         ).set(new_flow.q_occups[hop])
                     if new_flow.ingress_tstamps:
@@ -309,7 +314,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='ingress_tstamp'
                         ).set(new_flow.ingress_tstamps[hop])
                     if new_flow.egress_tstamps:
@@ -319,7 +324,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='egress_tstamp'
                         ).set(new_flow.egress_tstamps[hop])
                     if new_flow.l2_ingress_port_ids:
@@ -329,7 +334,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='l2_ingress_port_id'
                         ).set(new_flow.l2_ingress_port_ids[hop])
                     if new_flow.l2_egress_port_ids:
@@ -339,7 +344,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='l2_egress_port_id'
                         ).set(new_flow.l2_egress_port_ids[hop])
                     if new_flow.egress_port_tx_utils:
@@ -349,7 +354,7 @@ def receiver():
                                 src_port=str(int.from_bytes(new_flow.flow_id[2], byteorder='big')),
                                 dst_port=str(int.from_bytes(new_flow.flow_id[3], byteorder='big')),
                                 protocol=str(int(new_flow.flow_id[4])),
-                                hop_num=str(hop),
+                                switch_id=new_flow.switch_ids[hop],
                                 metadata='egress_port_tx_utils'
                         ).set(new_flow.egress_port_tx_utils[hop])
                 if TIMER:

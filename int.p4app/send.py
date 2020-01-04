@@ -86,7 +86,7 @@ def send_random_traffic(dst):
             p = p/UDP(dport=port)/Raw(load=data)
             # p = p/TCP(dport=port)/Raw(load=data)
             # print p.show()
-            sendp(p, iface = iface)
+            sendp(p, iface = iface, verbose=False)
             total_pkts += 1
     t2 = time.time()
     print "Sent %s packets in total" % total_pkts
