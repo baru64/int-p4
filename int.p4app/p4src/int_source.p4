@@ -53,8 +53,12 @@ control INT_source(inout headers hdr, inout metadata meta, inout standard_metada
             int_source;
         }
         key = {
-            hdr.ipv4.srcAddr     : ternary;
-            hdr.ipv4.dstAddr     : ternary;
+            hdr.ipv4.srcAddr    : ternary;
+            hdr.ipv4.dstAddr    : ternary;
+            hdr.tcp.srcPort     : ternary;     
+            hdr.tcp.dstPort     : ternary;     
+            hdr.udp.srcPort     : ternary;     
+            hdr.udp.dstPort     : ternary;     
         }
         size = 127;
     }
