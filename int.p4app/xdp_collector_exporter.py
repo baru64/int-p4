@@ -2,14 +2,46 @@ from bcc import BPF
 from prometheus_client import Gauge, start_http_server
 import ctypes
 
+MAX_INT_HOP = 8
+INT_DST_PORT = 9555
+FLOW_LATENCY_THRESHOLD = 100 
+HOP_LATENCY_THRESHOLD = 100
+LINK_LATENCY_THRESHOLD = 100
+QUEUE_OCCUPANCY_THRESHOLD = 1
+
 class Event(ctypes.Structure):
-    _fields_ = []
+    _fields_ = [
+        ("src_ip",          ctypes.c_uint32),
+        ("dst_ip",          ctypes.c_uint32),
+        ("src_port",        ctypes.c_ushort),
+        ("dst_port",        ctypes.c_ushort),
+        ("ip_proto",        ctypes.c_ushort),
+
+        ("hop_cnt",         ctypes.c_ubyte),
+
+        ("flow_latency",    ctypes.c_uint32),
+        ("switch_ids",      ctypes.c_uint32 * MAX_INT_HOP),
+
+        ("e_new_flow",      ctypes.c_ubyte),
+        ("e_flow_latency",  ctypes.c_ubyte),
+        ("e_sw_latency",    ctypes.c_ubyte),
+        ("e_link_latency",  ctypes.c_ubyte),
+        ("e_q_occupancy",   ctypes.c_ubyte)
+    ]
 
 class Collector:
 
     def __init__(self):
         self.xdp_collector = BPF(src_file="xdp_report_collector.c", debug=0,
-            cflags=[]) # TODO ADD FLAGS
+            cflags=[
+                "-w",
+                "-D_MAX_INT_HOP=%s" % MAX_INT_HOP,
+                "-D_INT_DST_PORT=%s" % INT_DST_PORT,
+                "-D_FLOW_LATENCY_THRESHOLD=%s" % FLOW_LATENCY_THRESHOLD,
+                "-D_HOP_LATENCY_THRESHOLD=%s" % HOP_LATENCY_THRESHOLD,
+                "-D_LINK_LATENCY_THRESHOLD=%s" % LINK_LATENCY_THRESHOLD,
+                "-D_QUEUE_OCCUPANCY_THRESHOLD=%s" % QUEUE_OCCUPANCY_THRESHOLD,
+            ])
         self.collector_fn = self.xdp_collector.load_func("collector", BPF.XDP)
         
         self.tb_flow = self.xdp_collector.get_table("tb_flow")
@@ -17,15 +49,79 @@ class Collector:
         self.tb_link = self.xdp_collector.get_table("tb_link")
         self.tb_queue = self.xdp_collector.get_table("tb_queue")
 
+        self.g_flow_latency = Gauge('flow_latency', 'total flow latency',
+            ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'ip_proto'])
+        self.g_switch_latency = Gauge('switch_latency', 'switch latency',
+            ['switch_id'])
+        self.g_link_latency = Gauge('link_latency', 'link latency',
+            ['egress_switch_id','egress_port_id',
+            'ingress_switch_id', 'ingress_port_id'])
+        self.g_queue_occupancy = Gauge('queue_occupancy', 'queue occupancy',
+            ['switch_id', "queue_id"])
+
+    def set_flow_latency(self, src_ip, dst_ip, src_port, dst_port, ip_proto):
+        key = self.tb_flow.Key(src_ip, dst_ip, src_port, dst_port, ip_proto)
+        val = self.tb_flow[key]
+        self.g_flow_latency.labels(
+            src_ip, dst_ip, src_port, dst_port, ip_proto
+        ).set(str(val.flow_latency))
+    
+    def set_switch_latency(self, switch_id):
+        key = self.tb_switch.Key(switch_id)
+        val = self.tb_switch[key]
+        self.g_switch_latency.labels(switch_id).set(str(val.hop_latency))
+
+    def set_link_latency(self,  egress_switch_id,
+                                egress_port_id,
+                                ingress_switch_id,
+                                ingress_port_id):
+        key = self.tb_link.Key(
+            egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
+        )
+        val = self.tb_link[key]
+        self.g_link_latency.labels(
+            egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
+        ).set(str(val.link_latency))
+
+    def set_queue_occupancy(self, switch_id, queue_id):
+        key = self.tb_queue.Key(switch_id, queue_id)
+        val = self.tb_queue[key]
+        self.g_queue_occupancy.labels(
+            switch_id, queue_id
+        ).set(str(val.q_occupancy))
+
     def attach_iface(self, iface):
         self.xdp_collector.attach_xdp(iface, self.collector_fn)
 
     def open_events(self):
         def _process_event(ctx, data, size):
-            pass
+            event = ctypes.cast(data, ctypes.POINTER(Event)).contents
+
+            # TODO detect route change
+            if event.e_new_flow:
+                self.set_flow_latency(
+                    event.src_ip, event.dst_ip, event.src_port,
+                    event.dst_port, event.ip_proto
+                )
+
+            if event.e_flow_latency:
+                self.set_flow_latency(
+                    event.src_ip, event.dst_ip, event.src_port,
+                    event.dst_port, event.ip_proto
+                )
+                
+            # TODO for every switch, link and queue call set_x_
+            # if event.e_sw_latency:
+            #     self.set_switch_latency(
+            #         event.switch_id
+            #     )
+            # if event.e_link_latency:
+            #     self.set_link_latency(
+
+            #     )
+
         self.xdp_collector["events"].open_perf_buffer(_process_event)
         
-
     def poll_events(self):
         self.xdp_collector.perf_buffer_poll()
 

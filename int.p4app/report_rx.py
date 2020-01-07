@@ -287,7 +287,6 @@ def receiver():
                                 metadata='hop_latency'
                         ).set(new_flow.hop_latencies[hop])
                     if new_flow.q_ids:
-                        print(">>>>>> SETTIN QUEUE!!!!!!!!!!!!!!!!!!")
                         FLOW_METRICS.labels(
                                 src_ip=ip2str(new_flow.flow_id[0]),
                                 dst_ip=ip2str(new_flow.flow_id[1]),
