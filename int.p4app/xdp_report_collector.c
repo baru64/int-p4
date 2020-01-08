@@ -161,7 +161,7 @@ BPF_TABLE("lru_hash", struct switch_id_t, struct switch_info_t, tb_switch, 100);
 BPF_TABLE("lru_hash", struct link_id_t, struct link_info_t, tb_link, 1000);
 BPF_TABLE("lru_hash", struct queue_id_t, struct queue_info_t, tb_queue, 10000);
 
-int collector(struct xdp_md *ctx) {
+int report_collector(struct xdp_md *ctx) {
     
     void* data_end = (void*)(long)ctx->data_end;
     void* cursor = (void*)(long)ctx->data; 
@@ -207,7 +207,7 @@ int collector(struct xdp_md *ctx) {
         .src_port = ntohs(in_ports->source),
         .dst_port = ntohs(in_ports->dest),
         .ip_proto = in_ip->protocol,
-        .hop_cnt = (data_end-cursor)/(int_metadata_hdr->hop_ml*4),
+        .hop_cnt = ((u32)(data_end-cursor))/(int_metadata_hdr->hop_ml*4),
         .e_new_flow = 0,
         .e_flow_latency = 0,
         .e_sw_latency = 0,

@@ -1,9 +1,10 @@
 import sys
+import argparse
 from bcc import BPF
 from prometheus_client import Gauge, start_http_server
 import ctypes
 
-MAX_INT_HOP = 8
+MAX_INT_HOP = 4
 INT_DST_PORT = 9555
 FLOW_LATENCY_THRESHOLD = 100 
 HOP_LATENCY_THRESHOLD = 100
@@ -43,7 +44,7 @@ class Collector:
                 "-D_LINK_LATENCY_THRESHOLD=%s" % LINK_LATENCY_THRESHOLD,
                 "-D_QUEUE_OCCUPANCY_THRESHOLD=%s" % QUEUE_OCCUPANCY_THRESHOLD,
             ])
-        self.collector_fn = self.xdp_collector.load_func("collector", BPF.XDP)
+        self.collector_fn = self.xdp_collector.load_func("report_collector", BPF.XDP)
         
         self.ifaces = []
 
@@ -130,15 +131,21 @@ class Collector:
             #     for i in range(event.s)
 
 
-        self.xdp_collector["events"].open_perf_buffer(_process_event)
+        self.xdp_collector["events"].open_perf_buffer(_process_event, page_cnt=512)
         
     def poll_events(self):
         self.xdp_collector.perf_buffer_poll()
 
+########
+
 if __name__ == "__main__":
+    # handle arguments
+    parser = argparse.ArgumentParser(description='INT collector.')
+    parser.add_argument("iface")
+    args = parser.parse_args()
+    
     collector = Collector()
-    if len(sys.argv < 2):
-        print("usage: %s INTERFACE" % sys.argv[0])
+
     print("Attaching interface")
     collector.attach_iface(sys.argv[1])
     collector.open_events()
