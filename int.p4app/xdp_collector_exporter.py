@@ -1,3 +1,4 @@
+import sys
 from bcc import BPF
 from prometheus_client import Gauge, start_http_server
 import ctypes
@@ -32,7 +33,7 @@ class Event(ctypes.Structure):
 class Collector:
 
     def __init__(self):
-        self.xdp_collector = BPF(src_file="xdp_report_collector.c", debug=0,
+        self.xdp_collector = BPF(src_file="xdp_report_collector.c", debug=1,
             cflags=[
                 "-w",
                 "-D_MAX_INT_HOP=%s" % MAX_INT_HOP,
@@ -44,6 +45,8 @@ class Collector:
             ])
         self.collector_fn = self.xdp_collector.load_func("collector", BPF.XDP)
         
+        self.ifaces = []
+
         self.tb_flow = self.xdp_collector.get_table("tb_flow")
         self.tb_switch = self.xdp_collector.get_table("tb_switch")
         self.tb_link = self.xdp_collector.get_table("tb_link")
@@ -91,7 +94,13 @@ class Collector:
         ).set(str(val.q_occupancy))
 
     def attach_iface(self, iface):
+        self.ifaces.append(iface)
         self.xdp_collector.attach_xdp(iface, self.collector_fn)
+
+    def detach_all_ifaces(self):
+        for iface in self.ifaces:
+            self.xdp_collector.remove_xdp(iface, 0)
+        self.ifaces = []
 
     def open_events(self):
         def _process_event(ctx, data, size):
@@ -110,15 +119,16 @@ class Collector:
                     event.dst_port, event.ip_proto
                 )
                 
-            # TODO for every switch, link and queue call set_x_
-            # if event.e_sw_latency:
-            #     self.set_switch_latency(
-            #         event.switch_id
-            #     )
-            # if event.e_link_latency:
-            #     self.set_link_latency(
+            # TODO for every switch, link call set_x_
+            if event.e_sw_latency:
+                for i in range(event.hop_cnt):
+                    self.set_switch_latency(
+                        event.switch_ids[i]
+                    )
+            # TODO add queue_ids to event info
+            # if event.e_q_occupancy;
+            #     for i in range(event.s)
 
-            #     )
 
         self.xdp_collector["events"].open_perf_buffer(_process_event)
         
@@ -126,4 +136,21 @@ class Collector:
         self.xdp_collector.perf_buffer_poll()
 
 if __name__ == "__main__":
-    pass
+    collector = Collector()
+    if len(sys.argv < 2):
+        print("usage: %s INTERFACE" % sys.argv[0])
+    print("Attaching interface")
+    collector.attach_iface(sys.argv[1])
+    collector.open_events()
+    print("eBPF loaded")
+    try:
+        while True:
+            collector.poll_events()
+    except KeyboardInterrupt:
+        pass
+
+    finally:
+        collector.detach_all_ifaces()
+        print("Detaching interfaces")
+    
+    print("Exitting...")

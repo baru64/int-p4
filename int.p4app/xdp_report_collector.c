@@ -108,36 +108,36 @@ struct flow_info_t {
     u8 e_sw_latency;
     u8 e_link_latency;
     u8 e_q_occupancy;
-}
+};
 
 struct switch_id_t {
     u32 switch_id;
-}
+};
 
 struct switch_info_t {
     u32 hop_latency;
-}
+};
 
 struct link_id_t {
     u32 egress_switch_id;
     u32 egress_port_id;
     u32 ingress_switch_id;
     u32 ingress_port_id;
-}
+};
 
 struct link_info_t {
     u32 link_latency;
     //u32 egress_port_tx_util;
-}
+};
 
 struct queue_id_t {
     u32 switch_id;
     u32 q_id;
-}
+};
 
 struct queue_info_t {
     u32 q_occupancy;
-}
+};
 
 struct INT_hop_metadata_t {
     u32 switch_id;
@@ -151,13 +151,13 @@ struct INT_hop_metadata_t {
     u32 l2_ingress_port_id;
     u32 l2_egress_port_id;
     u32 egress_port_tx_util;
-}
+};
 
-BPF_PERF_OUTPUT(events)
+BPF_PERF_OUTPUT(events);
 
 // BPF TABLES
 BPF_TABLE("lru_hash", struct flow_id_t, struct flow_info_t, tb_flow, 100000);
-BPF_TABLE("lru_hash". struct switch_id_t, struct switch_info_t, tb_switch, 100);
+BPF_TABLE("lru_hash", struct switch_id_t, struct switch_info_t, tb_switch, 100);
 BPF_TABLE("lru_hash", struct link_id_t, struct link_info_t, tb_link, 1000);
 BPF_TABLE("lru_hash", struct queue_id_t, struct queue_info_t, tb_queue, 10000);
 
@@ -205,7 +205,7 @@ int collector(struct xdp_md *ctx) {
         .src_ip = ntohl(in_ip->saddr),
         .dst_ip = ntohl(in_ip->daddr),
         .src_port = ntohs(in_ports->source),
-        .dst_port = ntohs(in_port->dest),
+        .dst_port = ntohs(in_ports->dest),
         .ip_proto = in_ip->protocol,
         .hop_cnt = (data_end-cursor)/(int_metadata_hdr->hop_ml*4),
         .e_new_flow = 0,
@@ -216,7 +216,7 @@ int collector(struct xdp_md *ctx) {
     };
 
     // each hop metadata
-    struct INT_hop_metadata_t hop_metadata[flow_info->hop_cnt];
+    struct INT_hop_metadata_t hop_metadata[MAX_INT_HOP];
 
     /*
         PARSE INT METADATA
@@ -230,7 +230,7 @@ int collector(struct xdp_md *ctx) {
         - egress tx port util 32b
     */
     #pragma unroll
-    for (u8 i = 0; i < flow_info.hop_cnt; i++) {
+    for (u8 i = 0; (i < MAX_INT_HOP) && (i < flow_info.hop_cnt); i++) {
         CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
         flow_info.switch_ids[i] = ntohl(int_data->data);
 
@@ -302,7 +302,8 @@ int collector(struct xdp_md *ctx) {
     }
 
     #pragma unroll
-    for (u8 i = 0; i < flow_info.hop_cnt; i++) {
+    for (u8 i = 0; (i < MAX_INT_HOP) && (i < flow_info.hop_cnt); i++) {
+    // for (u8 i = 0; i < MAX_INT_HOP; i++) {
         u8 update = 0;
         // switch table
         struct switch_id_t sw_id = {
