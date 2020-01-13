@@ -72,7 +72,7 @@ class Collector:
     
     def set_switch_latency(self, switch_id):
         key = self.tb_switch.Key(switch_id)
-        val = self.tb_switch[key]
+        val = self.tb_switch[key] # TODO fix KeyError
         self.g_switch_latency.labels(switch_id).set(str(val.hop_latency))
 
     def set_link_latency(self,  egress_switch_id,
@@ -106,7 +106,10 @@ class Collector:
     def open_events(self):
         def _process_event(ctx, data, size):
             event = ctypes.cast(data, ctypes.POINTER(Event)).contents
-
+            print("whoa we got em packet")
+            print(event.e_new_flow, event.e_sw_latency, event.e_q_occupancy)
+            print(event.src_ip, event.dst_ip, event.src_port,
+                    event.dst_port, event.ip_proto)
             # TODO detect route change
             if event.e_new_flow:
                 self.set_flow_latency(
@@ -139,6 +142,7 @@ class Collector:
 ########
 
 if __name__ == "__main__":
+    start_http_server(8000)
     # handle arguments
     parser = argparse.ArgumentParser(description='INT collector.')
     parser.add_argument("iface")

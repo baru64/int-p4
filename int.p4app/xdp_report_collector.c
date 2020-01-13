@@ -201,22 +201,21 @@ int report_collector(struct xdp_md *ctx) {
 
     struct INT_metadata_t *int_data;
 
-    struct flow_info_t flow_info = {
-        .src_ip = ntohl(in_ip->saddr),
-        .dst_ip = ntohl(in_ip->daddr),
-        .src_port = ntohs(in_ports->source),
-        .dst_port = ntohs(in_ports->dest),
-        .ip_proto = in_ip->protocol,
-        .hop_cnt = ((u32)(data_end-cursor))/(int_metadata_hdr->hop_ml*4),
-        .e_new_flow = 0,
-        .e_flow_latency = 0,
-        .e_sw_latency = 0,
-        .e_link_latency = 0,
-        .e_q_occupancy = 0
-    };
+    struct flow_info_t flow_info = {};
+    flow_info.src_ip = ntohl(in_ip->saddr);
+    flow_info.dst_ip = ntohl(in_ip->daddr);
+    flow_info.src_port = ntohs(in_ports->source);
+    flow_info.dst_port = ntohs(in_ports->dest);
+    flow_info.ip_proto = in_ip->protocol;
+    flow_info.hop_cnt = 0;
+    flow_info.e_new_flow = 0;
+    flow_info.e_flow_latency = 0;
+    flow_info.e_sw_latency = 0;
+    flow_info.e_link_latency = 0;
+    flow_info.e_q_occupancy = 0;
 
     // each hop metadata
-    struct INT_hop_metadata_t hop_metadata[MAX_INT_HOP];
+    struct INT_hop_metadata_t hop_metadata[MAX_INT_HOP] = {};
 
     /*
         PARSE INT METADATA
@@ -230,25 +229,98 @@ int report_collector(struct xdp_md *ctx) {
         - egress tx port util 32b
     */
     #pragma unroll
-    for (u8 i = 0; (i < MAX_INT_HOP) && (i < flow_info.hop_cnt); i++) {
+    for (u8 i = 0; (i < MAX_INT_HOP)/* && (i < flow_info.hop_cnt)*/; i++) {
         CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
-        flow_info.switch_ids[i] = ntohl(int_data->data);
+        flow_info.switch_ids[i] =  ntohl(int_data->data);
+        flow_info.hop_cnt += 1;
+        u8 update = 0;
 
         if (int_metadata_hdr->ins_map & 0x4000) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].ingress_port_id = ntohs((u16)(int_data->data >> 16));
             hop_metadata[i].egress_port_id = ntohs((u16)(int_data->data & 0x0000ffff));
+            
+            // UPDATE LINK TABLE
+            if ((i-1) >= 0) {
+                struct link_id_t link_id = {};
+                link_id.egress_switch_id = hop_metadata[i].switch_id;
+                link_id.egress_port_id = hop_metadata[i].egress_port_id;
+                link_id.ingress_switch_id = hop_metadata[i-1].switch_id;
+                link_id.ingress_port_id = hop_metadata[i-1].ingress_port_id;
+
+                struct link_info_t link_info = {};
+                link_info.link_latency = hop_metadata[i].ingress_tstamp
+                                         - hop_metadata[i-1].egress_tstamp;
+
+                struct link_info_t *link_info_p = tb_link.lookup(&link_id);
+                if (unlikely(!link_info_p)) {
+                    update = 1;
+                } else if ( ABS(link_info.link_latency, link_info_p->link_latency)
+                            > LINK_LATENCY_THRESHOLD) {
+                    update = 1;
+                }
+
+                if (update) {
+                    tb_link.update(&link_id, &link_info);
+                    flow_info.e_link_latency = 1;
+                    update = 0;
+                }
+            }
         }
 
         if (int_metadata_hdr->ins_map & 0x2000) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].hop_latency = ntohl(int_data->data);
+            flow_info.flow_latency += ntohl(int_data->data);
+            
+            // UPDATE SWITCH TABLE
+            struct switch_id_t sw_id = {};
+            sw_id.switch_id = hop_metadata[i].switch_id;
+            struct switch_info_t switch_info = {};
+            switch_info.hop_latency = hop_metadata[i].hop_latency;
+            
+            struct switch_info_t *switch_info_p = tb_switch.lookup(&sw_id);
+
+            if (unlikely(!switch_info_p)) {
+                update = 1;
+            } else if(  ABS(switch_info.hop_latency, switch_info_p->hop_latency)
+                        > HOP_LATENCY_THRESHOLD) {
+                update = 1;
+            }
+
+            if (update) {
+                tb_switch.update(&sw_id, &switch_info);
+                flow_info.e_sw_latency = 1;
+                update = 0;
+            }
         }
         if (int_metadata_hdr->ins_map & 0x1000) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].q_id = (u8)(int_data->data >> 24);
             hop_metadata[i].q_occupancy =
                 (int_data->data & 0x00ff0000) + ntohl(int_data->data & 0x0000ffff);
+
+            // UPDATE QUEUE TABLE
+            struct queue_id_t queue_id = {};
+            queue_id.switch_id = hop_metadata[i].switch_id;
+            queue_id.q_id = hop_metadata[i].q_id;
+            
+            struct queue_info_t queue_info = {};
+            queue_info.q_occupancy = hop_metadata[i].q_occupancy;
+
+            struct queue_info_t *queue_info_p = tb_queue.lookup(&queue_id);
+            if (unlikely(!queue_info_p)) {
+                update = 1;
+            } else if ( ABS(queue_info.q_occupancy, queue_info_p->q_occupancy)
+                            > QUEUE_OCCUPANCY_THRESHOLD) {
+                update = 1;
+            }
+
+            if (update) {
+                tb_queue.update(&queue_id, &queue_info);
+                flow_info.e_q_occupancy = 1;
+                update = 0;
+            }
         }
         if (int_metadata_hdr->ins_map & 0x0800) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
@@ -268,26 +340,19 @@ int report_collector(struct xdp_md *ctx) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].egress_port_tx_util = ntohl(int_data->data);
         }
-    }
-    /*
-    events:
-    e_new_flow;
-    e_flow_latency;
-    e_sw_latency;
-    e_link_latency;
-    e_q_occupancy;
-    */
-    // flow latency
-    flow_info.flow_latency = hop_metadata[flow_info.hop_cnt - 1].egress_tstamp
-                             - hop_metadata[0].ingress_tstamp;
 
-    struct flow_id_t flow_id = {
-        .src_ip = flow_info.src_ip,
-        .dst_ip = flow_info.dst_ip,
-        .src_port = flow_info.src_port,
-        .dst_port = flow_info.dst_port,
-        .ip_proto = flow_info.ip_proto
-    };
+        if (cursor >= data_end) {
+            break;
+        }
+    }
+
+    struct flow_id_t flow_id = {};
+    flow_id.src_ip = flow_info.src_ip;
+    flow_id.dst_ip = flow_info.dst_ip;
+    flow_id.src_port = flow_info.src_port;
+    flow_id.dst_port = flow_info.dst_port;
+    flow_id.ip_proto = flow_info.ip_proto;
+    
 
     u8 flow_update = 0;
     struct flow_info_t *flow_info_p = tb_flow.lookup(&flow_id);
@@ -300,86 +365,10 @@ int report_collector(struct xdp_md *ctx) {
         flow_info.e_flow_latency = 1;
         flow_update = 1;
     }
-
-    #pragma unroll
-    for (u8 i = 0; (i < MAX_INT_HOP) && (i < flow_info.hop_cnt); i++) {
-    // for (u8 i = 0; i < MAX_INT_HOP; i++) {
-        u8 update = 0;
-        // switch table
-        struct switch_id_t sw_id = {
-            .switch_id = hop_metadata[i].switch_id
-        };
-        struct switch_info_t switch_info = {
-            .hop_latency = hop_metadata[i].hop_latency
-        };
-        struct switch_info_t *switch_info_p = tb_switch.lookup(&sw_id);
-
-        if (unlikely(!switch_info_p)) {
-            update = 1;
-        } else if(  ABS(switch_info.hop_latency, switch_info_p->hop_latency)
-                    > HOP_LATENCY_THRESHOLD) {
-            update = 1;
-        }
-
-        if (update) {
-            tb_switch.update(&sw_id, &switch_info);
-            flow_info.e_sw_latency = 1;
-            update = 0;
-        }
-
-        // queue table
-        struct queue_id_t queue_id = {
-            .switch_id = hop_metadata[i].switch_id,
-            .q_id = hop_metadata[i].q_id
-        };
-        struct queue_info_t queue_info = {
-            .q_occupancy = hop_metadata[i].q_occupancy
-        };
-        struct queue_info_t *queue_info_p = tb_queue.lookup(&queue_id);
-        if (unlikely(!queue_info_p)) {
-            update = 1;
-        } else if ( ABS(queue_info.q_occupancy, queue_info_p->q_occupancy)
-                        > QUEUE_OCCUPANCY_THRESHOLD) {
-                    update = 1;
-        }
-
-        if (update) {
-            tb_queue.update(&queue_id, &queue_info);
-            flow_info.e_q_occupancy = 1;
-            update = 0;
-        }
-
-        // link table
-        if ((i+2) < flow_info.hop_cnt) {
-            struct link_id_t link_id = {
-                .egress_switch_id = hop_metadata[i].switch_id,
-                .egress_port_id = hop_metadata[i].egress_port_id,
-                .ingress_switch_id = hop_metadata[i+1].switch_id,
-                .ingress_port_id = hop_metadata[i+1].ingress_port_id
-            };
-            struct link_info_t link_info = {
-                .link_latency = hop_metadata[i+1].ingress_tstamp,
-            };
-            struct link_info_t *link_info_p = tb_link.lookup(&link_id);
-            if (unlikely(!link_info_p)) {
-                update = 1;
-            } else if ( ABS(link_info.link_latency, link_info_p->link_latency)
-                        > LINK_LATENCY_THRESHOLD) {
-                update = 1;
-            }
-
-            if (update) {
-                tb_link.update(&link_id, &link_info);
-                flow_info.e_link_latency = 1;
-                update = 0;
-            }
-        }
-
-    }
+    
     if (flow_update) {
         tb_flow.update(&flow_id, &flow_info);
     }
-    // TODO CHECKS BEFORE CALCULATING TABLE ENTRIES
 
     // submit event
     if (unlikely(
