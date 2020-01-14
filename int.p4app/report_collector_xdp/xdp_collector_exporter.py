@@ -30,6 +30,7 @@ class Event(ctypes.Structure):
         ("queue_occups",    ctypes.c_uint32 * MAX_INT_HOP),
         ("ingress_tstamps", ctypes.c_uint32 * MAX_INT_HOP),
         ("egress_tstamps",  ctypes.c_uint32 * MAX_INT_HOP),
+        ("egress_tx_util",  ctypes.c_uint32 * MAX_INT_HOP),
 
         ("e_new_flow",      ctypes.c_ubyte),
         ("e_flow_latency",  ctypes.c_ubyte),
@@ -84,15 +85,17 @@ class Collector:
 
     def set_link_latency(self,  egress_switch_id,
                                 egress_port_id,
+                                egress_tstamp,
                                 ingress_switch_id,
-                                ingress_port_id):
-        key = self.tb_link.Key(
-            egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
-        )
-        val = self.tb_link[key]
+                                ingress_port_id,
+                                ingress_tstamp):
+        # key = self.tb_link.Key(
+        #     egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
+        # )
+        # val = self.tb_link[key]
         self.g_link_latency.labels(
             egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
-        ).set(str(val.link_latency))
+        ).set(ingress_tstamp - egress_tstamp)
 
     def set_queue_occupancy(self, switch_id, queue_id, value):
         # key = self.tb_queue.Key(switch_id, queue_id)
@@ -141,6 +144,17 @@ class Collector:
                     self.set_queue_occupancy(
                         event.switch_ids[i], event.queue_ids[i],
                         event.queue_occups[i]
+                    )
+            
+            if event.e_link_latency:
+                for i in range(event.hop_cnt - 1):
+                    self.set_link_latency(
+                        event.switch_ids[i],
+                        event.egress_ports[i],
+                        event.egress_tstamps[i],
+                        event.switch_ids[i+1],
+                        event.ingress_ports[i+1],
+                        event.ingress_tstamps[i+1]
                     )
 
 

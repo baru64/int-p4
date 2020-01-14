@@ -109,6 +109,7 @@ struct flow_info_t {
     u32 queue_occups[MAX_INT_HOP];
     u32 ingress_tstamps[MAX_INT_HOP];
     u32 egress_tstamps[MAX_INT_HOP];
+    u32 egress_tx_util[MAX_INT_HOP];
     // events
     u8 e_new_flow;
     u8 e_flow_latency;
@@ -352,6 +353,7 @@ int report_collector(struct xdp_md *ctx) {
         if (int_metadata_hdr->ins_map & 0x0100) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].egress_port_tx_util = ntohl(int_data->data);
+            flow_info.egress_tx_util[i] = ntohl(int_data->data);
         }
 
         if (cursor >= data_end) {
