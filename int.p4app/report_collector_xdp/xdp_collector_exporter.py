@@ -9,7 +9,7 @@ INT_DST_PORT = 9555
 FLOW_LATENCY_THRESHOLD = 100 
 HOP_LATENCY_THRESHOLD = 100
 LINK_LATENCY_THRESHOLD = 100
-QUEUE_OCCUPANCY_THRESHOLD = 1
+QUEUE_OCCUPANCY_THRESHOLD = 0
 
 class Event(ctypes.Structure):
     _fields_ = [
@@ -77,10 +77,10 @@ class Collector:
             src_ip, dst_ip, src_port, dst_port, ip_proto
         ).set(str(val.flow_latency))
     
-    def set_switch_latency(self, switch_id):
-        key = self.tb_switch.Key(switch_id)
-        val = self.tb_switch[key] # TODO fix KeyError
-        self.g_switch_latency.labels(switch_id).set(str(val.hop_latency))
+    def set_switch_latency(self, switch_id, value):
+        # key = self.tb_switch.Key(switch_id)
+        # val = self.tb_switch[key] # TODO fix KeyError
+        self.g_switch_latency.labels(switch_id).set(value)
 
     def set_link_latency(self,  egress_switch_id,
                                 egress_port_id,
@@ -94,12 +94,12 @@ class Collector:
             egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
         ).set(str(val.link_latency))
 
-    def set_queue_occupancy(self, switch_id, queue_id):
-        key = self.tb_queue.Key(switch_id, queue_id)
-        val = self.tb_queue[key]
+    def set_queue_occupancy(self, switch_id, queue_id, value):
+        # key = self.tb_queue.Key(switch_id, queue_id)
+        # val = self.tb_queue[key]
         self.g_queue_occupancy.labels(
             switch_id, queue_id
-        ).set(str(val.q_occupancy))
+        ).set(value)
 
     def attach_iface(self, iface):
         self.ifaces.append(iface)
@@ -131,21 +131,17 @@ class Collector:
                     event.dst_port, event.ip_proto
                 )
                 
-            # TODO for every switch, link call set_x_
-            # print('hop count: ', event.hop_cnt)
-            # if event.e_sw_latency:
-            #     for i in range(event.hop_cnt):
-            #         print('switch id:', event.switch_ids[i])
-            #         self.set_switch_latency(
-            #             event.switch_ids[i]
-            #        )
-            # TODO add queue_ids to event info
-            # if event.e_q_occupancy:
-            #     for i in range(event.hop_cnt):
-            #         print('queue:', event.switch_ids[i], event.queue_ids[i])
-            #         self.set_queue_occupancy(
-            #             event.switch_ids[i], event.queue_ids[i]
-            #         )
+            if event.e_sw_latency:
+                for i in range(event.hop_cnt):
+                     self.set_switch_latency(
+                         event.switch_ids[i], event.hop_latencies[i]
+                    )
+            if event.e_q_occupancy:
+                for i in range(event.hop_cnt):
+                    self.set_queue_occupancy(
+                        event.switch_ids[i], event.queue_ids[i],
+                        event.queue_occups[i]
+                    )
 
 
         self.xdp_collector["events"].open_perf_buffer(_process_event, page_cnt=512)
