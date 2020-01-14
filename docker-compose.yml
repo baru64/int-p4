@@ -1,4 +1,4 @@
-version: '3'
+version: '2'
 services:
     prometheus:
         image:  prom/prometheus
@@ -19,3 +19,4 @@ services:
           - bridge
 networks:
     bridge:
+        name: int-p4_bridge
