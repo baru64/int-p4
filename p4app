@@ -55,7 +55,7 @@ function run-p4app {
   docker run --privileged --interactive --tty --rm \
             --name "$P4APP_NAME" \
             -p 8000:8000 \
-            --network intp4_bridge \
+            --network int-p4_bridge \
             -v $1:$APP_TO_RUN \
             -v "$P4APP_LOGDIR":/tmp/p4app_logs \
              $P4APP_CONTAINER_ARGS \
