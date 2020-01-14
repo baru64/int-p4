@@ -20,5 +20,6 @@ Vagrant.configure("2") do |config|
     cd p4app
     docker build -t baru64/int_p4app:0.1 .
     cp /home/vagrant/int-p4/p4app /usr/local/bin/p4app 
+    reboot
   SHELL
 end
