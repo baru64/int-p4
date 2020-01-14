@@ -102,7 +102,13 @@ struct flow_info_t {
     // flow info
     u32 flow_latency;
     u32 switch_ids[MAX_INT_HOP];
+    u16 ingress_ports[MAX_INT_HOP];
+    u16 egress_ports[MAX_INT_HOP];
+    u32 hop_latencies[MAX_INT_HOP];
     u32 queue_ids[MAX_INT_HOP];
+    u32 queue_occups[MAX_INT_HOP];
+    u32 ingress_tstamps[MAX_INT_HOP];
+    u32 egress_tstamps[MAX_INT_HOP];
     // events
     u8 e_new_flow;
     u8 e_flow_latency;
@@ -240,8 +246,10 @@ int report_collector(struct xdp_md *ctx) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].ingress_port_id = ntohs((u16)(int_data->data >> 16));
             hop_metadata[i].egress_port_id = ntohs((u16)(int_data->data & 0x0000ffff));
-            
-            // UPDATE LINK TABLE
+
+            flow_info.ingress_ports[i] =  hop_metadata[i].ingress_port_id;
+            flow_info.egress_ports[i] =  hop_metadata[i].egress_port_id;
+            // // UPDATE LINK TABLE
             if ((i-1) >= 0) {
                 struct link_id_t link_id = {};
                 link_id.egress_switch_id = hop_metadata[i].switch_id;
@@ -273,6 +281,7 @@ int report_collector(struct xdp_md *ctx) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].hop_latency = ntohl(int_data->data);
             flow_info.flow_latency += ntohl(int_data->data);
+            flow_info.hop_latencies[i] = ntohl(int_data->data);
             
             // UPDATE SWITCH TABLE
             struct switch_id_t sw_id = {};
@@ -301,6 +310,7 @@ int report_collector(struct xdp_md *ctx) {
             hop_metadata[i].q_occupancy =
                 (int_data->data & 0x00ff0000) + ntohl(int_data->data & 0x0000ffff);
             flow_info.queue_ids[i] = hop_metadata[i].q_id;
+            flow_info.queue_occups[i] = hop_metadata[i].queue_occups;
             // UPDATE QUEUE TABLE
             struct queue_id_t queue_id = {};
             queue_id.switch_id = hop_metadata[i].switch_id;
@@ -313,7 +323,7 @@ int report_collector(struct xdp_md *ctx) {
             if (unlikely(!queue_info_p)) {
                 update = 1;
             } else if ( ABS(queue_info.q_occupancy, queue_info_p->q_occupancy)
-                            > QUEUE_OCCUPANCY_THRESHOLD) {
+                            >= QUEUE_OCCUPANCY_THRESHOLD) {
                 update = 1;
             }
 
@@ -326,10 +336,12 @@ int report_collector(struct xdp_md *ctx) {
         if (int_metadata_hdr->ins_map & 0x0800) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].ingress_tstamp = ntohl(int_data->data);
+            flow_info.ingress_tstamps[i] = ntohl(int_data->data);
         }
         if (int_metadata_hdr->ins_map & 0x0400) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].egress_tstamp = ntohl(int_data->data);
+            flow_info.egress_tstamps[i] = ntohl(int_data->data)
         }
         if (int_metadata_hdr->ins_map & 0x0200) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);

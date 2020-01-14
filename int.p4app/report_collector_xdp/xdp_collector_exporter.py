@@ -23,7 +23,13 @@ class Event(ctypes.Structure):
 
         ("flow_latency",    ctypes.c_uint32),
         ("switch_ids",      ctypes.c_uint32 * MAX_INT_HOP),
+        ("ingress_ports",   ctypes.c_uint16 * MAX_INT_HOP),
+        ("egress_ports",    ctypes.c_uint16 * MAX_INT_HOP),
+        ("hop_latencies",   ctypes.c_uint32 * MAX_INT_HOP),
         ("queue_ids",       ctypes.c_uint32 * MAX_INT_HOP),
+        ("queue_occups",    ctypes.c_uint32 * MAX_INT_HOP),
+        ("ingress_tstamps", ctypes.c_uint32 * MAX_INT_HOP),
+        ("egress_tstamps",  ctypes.c_uint32 * MAX_INT_HOP),
 
         ("e_new_flow",      ctypes.c_ubyte),
         ("e_flow_latency",  ctypes.c_ubyte),
@@ -126,20 +132,20 @@ class Collector:
                 )
                 
             # TODO for every switch, link call set_x_
-            print('hop count: ', event.hop_cnt)
-            if event.e_sw_latency:
-                for i in range(event.hop_cnt):
-                    print('switch id:', event.switch_ids[i])
-                    self.set_switch_latency(
-                        event.switch_ids[i]
+            # print('hop count: ', event.hop_cnt)
+            # if event.e_sw_latency:
+            #     for i in range(event.hop_cnt):
+            #         print('switch id:', event.switch_ids[i])
+            #         self.set_switch_latency(
+            #             event.switch_ids[i]
                     )
             # TODO add queue_ids to event info
-            if event.e_q_occupancy;
-                for i in range(event.hop_cnt):
-                    print('queue:', event.switch_ids[i], event.queue_ids[i])
-                    self.set_queue_occupancy(
-                        event.switch_ids[i], event.queue_ids[i]
-                    )
+            # if event.e_q_occupancy:
+            #     for i in range(event.hop_cnt):
+            #         print('queue:', event.switch_ids[i], event.queue_ids[i])
+            #         self.set_queue_occupancy(
+            #             event.switch_ids[i], event.queue_ids[i]
+            #         )
 
 
         self.xdp_collector["events"].open_perf_buffer(_process_event, page_cnt=512)
