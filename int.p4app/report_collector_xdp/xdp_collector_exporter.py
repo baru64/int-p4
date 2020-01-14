@@ -124,8 +124,10 @@ class Collector:
                 )
                 
             # TODO for every switch, link call set_x_
+            print('hop count: ', event.hop_cnt)
             if event.e_sw_latency:
                 for i in range(event.hop_cnt):
+                    print('switch id:', event.switch_ids[i])
                     self.set_switch_latency(
                         event.switch_ids[i]
                     )
