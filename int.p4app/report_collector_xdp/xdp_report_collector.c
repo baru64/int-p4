@@ -239,6 +239,7 @@ int report_collector(struct xdp_md *ctx) {
     #pragma unroll
     for (u8 i = 0; (i < MAX_INT_HOP)/* && (i < flow_info.hop_cnt)*/; i++) {
         CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
+        hop_metadata[i].switch_id = ntohl(int_data->data);
         flow_info.switch_ids[i] =  ntohl(int_data->data);
         flow_info.hop_cnt += 1;
         u8 update = 0;
