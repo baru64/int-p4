@@ -7,13 +7,13 @@
 control INT_transit(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
 
     /********* UPDATE ACTIONS *********/
-    action int_update_ipv4_ac() {
+    action int_update_ipv4_len() {
         hdr.ipv4.totalLen = hdr.ipv4.totalLen + (bit<16>)meta.int_meta.byte_cnt;
     }
-    action int_update_shim_ac() {
+    action int_update_shim_len() {
         hdr.int_shim.len = hdr.int_shim.len + (bit<8>)hdr.int_header.hop_metadata_len;
     }
-    action int_update_udp_ac() {
+    action int_update_udp_len() {
         hdr.udp.len = hdr.udp.len + (bit<16>)meta.int_meta.byte_cnt;
     }
     action int_transit_config(bit<32> switch_id, bit<16> l3_mtu) {
@@ -308,9 +308,9 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
                 tb_int_inst_0407.apply();
                 
                 int_hop_cnt_decrement();
-                int_update_ipv4_ac();
-                if (hdr.udp.isValid()) int_update_udp_ac();
-                if (hdr.int_shim.isValid()) int_update_shim_ac();
+                int_update_ipv4_len();
+                if (hdr.udp.isValid()) int_update_udp_len();
+                if (hdr.int_shim.isValid()) int_update_shim_len();
             }
           }
     }
