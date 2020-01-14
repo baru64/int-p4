@@ -19,3 +19,4 @@ services:
           - bridge
 networks:
     bridge:
+        name: int-p4_bridge
