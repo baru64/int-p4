@@ -138,7 +138,7 @@ class Collector:
             #         print('switch id:', event.switch_ids[i])
             #         self.set_switch_latency(
             #             event.switch_ids[i]
-                    )
+            #        )
             # TODO add queue_ids to event info
             # if event.e_q_occupancy:
             #     for i in range(event.hop_cnt):

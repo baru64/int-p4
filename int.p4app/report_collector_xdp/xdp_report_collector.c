@@ -310,7 +310,7 @@ int report_collector(struct xdp_md *ctx) {
             hop_metadata[i].q_occupancy =
                 (int_data->data & 0x00ff0000) + ntohl(int_data->data & 0x0000ffff);
             flow_info.queue_ids[i] = hop_metadata[i].q_id;
-            flow_info.queue_occups[i] = hop_metadata[i].queue_occups;
+            flow_info.queue_occups[i] = hop_metadata[i].q_occupancy;
             // UPDATE QUEUE TABLE
             struct queue_id_t queue_id = {};
             queue_id.switch_id = hop_metadata[i].switch_id;
@@ -341,7 +341,7 @@ int report_collector(struct xdp_md *ctx) {
         if (int_metadata_hdr->ins_map & 0x0400) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].egress_tstamp = ntohl(int_data->data);
-            flow_info.egress_tstamps[i] = ntohl(int_data->data)
+            flow_info.egress_tstamps[i] = ntohl(int_data->data);
         }
         if (int_metadata_hdr->ins_map & 0x0200) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
