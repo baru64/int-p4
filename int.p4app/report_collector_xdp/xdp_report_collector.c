@@ -102,6 +102,7 @@ struct flow_info_t {
     // flow info
     u32 flow_latency;
     u32 switch_ids[MAX_INT_HOP];
+    u32 queue_ids[MAX_INT_HOP];
     // events
     u8 e_new_flow;
     u8 e_flow_latency;
@@ -299,7 +300,7 @@ int report_collector(struct xdp_md *ctx) {
             hop_metadata[i].q_id = (u8)(int_data->data >> 24);
             hop_metadata[i].q_occupancy =
                 (int_data->data & 0x00ff0000) + ntohl(int_data->data & 0x0000ffff);
-
+            flow_info.queue_ids[i] = hop_metadata[i].q_id;
             // UPDATE QUEUE TABLE
             struct queue_id_t queue_id = {};
             queue_id.switch_id = hop_metadata[i].switch_id;

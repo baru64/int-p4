@@ -23,6 +23,7 @@ class Event(ctypes.Structure):
 
         ("flow_latency",    ctypes.c_uint32),
         ("switch_ids",      ctypes.c_uint32 * MAX_INT_HOP),
+        ("queue_ids",       ctypes.c_uint32 * MAX_INT_HOP),
 
         ("e_new_flow",      ctypes.c_ubyte),
         ("e_flow_latency",  ctypes.c_ubyte),
@@ -106,10 +107,11 @@ class Collector:
     def open_events(self):
         def _process_event(ctx, data, size):
             event = ctypes.cast(data, ctypes.POINTER(Event)).contents
-            print("whoa we got em packet")
-            print(event.e_new_flow, event.e_sw_latency, event.e_q_occupancy)
+            print("Received packet")
+            print(event.e_new_flow, event.e_sw_latency,
+                event.e_q_occupancy, event.e_link_latency)
             print(event.src_ip, event.dst_ip, event.src_port,
-                    event.dst_port, event.ip_proto)
+                event.dst_port, event.ip_proto)
             # TODO detect route change
             if event.e_new_flow:
                 self.set_flow_latency(
@@ -132,8 +134,12 @@ class Collector:
                         event.switch_ids[i]
                     )
             # TODO add queue_ids to event info
-            # if event.e_q_occupancy;
-            #     for i in range(event.s)
+            if event.e_q_occupancy;
+                for i in range(event.hop_cnt):
+                    print('queue:', event.switch_ids[i], event.queue_ids[i])
+                    self.set_queue_occupancy(
+                        event.switch_ids[i], event.queue_ids[i]
+                    )
 
 
         self.xdp_collector["events"].open_perf_buffer(_process_event, page_cnt=512)
