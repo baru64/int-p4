@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,13 +33,13 @@ int main() {
     int addrlen = sizeof src_addr;
     pthread_t parser_thread;
     void* parser_result;
-    //packet_queue = (dequeue*) malloc(sizeof(dequeue));
     Context parser_context = {&packet_queue, &terminate};
 
     struct sigaction action;
     action.sa_handler = sigterm_handler;
-    //sigaction(SIGTERM, &action, NULL);
-    //sigaction(SIGINT, &action, NULL);
+    action.sa_flags = 0;
+    sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGINT, &action, NULL);
   
     if (dequeue_init(&packet_queue) != 0) {
         perror("cannot create packet queue");
@@ -77,7 +78,9 @@ int main() {
             dequeue_push(&packet_queue, buffer, rx_size);
         }
     }
-
+    sem_post(&packet_queue.sem);
+    printf("exiting...\n");
+    close(sock_fd);
     pthread_join(parser_thread, &parser_result);
     dequeue_free(&packet_queue);
     return 0;

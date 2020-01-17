@@ -29,7 +29,10 @@ void dequeue_push(dequeue* dq, void* data, int len) {
 }
 
 void* dequeue_pop(dequeue* dq, int* size) {
-    sem_wait(&dq->sem);
+    if(sem_wait(&dq->sem) != 0) {
+        printf("nonzero wait\n");
+        return NULL;
+    }
     pthread_mutex_lock(&dq->mutex);
    
     void* ret = NULL;
