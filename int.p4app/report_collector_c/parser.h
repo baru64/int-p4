@@ -1,11 +1,12 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
+#ifndef PARSER_H
+#define PARSER_H
 
-#define BUFFER_SIZE 512
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include "util.h"
 
 struct telemetry_report_t {
     uint8_t     ver:4,
@@ -47,29 +48,6 @@ struct INT_metadata_t {
     uint32_t data;
 } __attribute__((packed));
 
-int main(){
-    int sock_fd, rx_size;
-    char buffer[BUFFER_SIZE];
-    struct sockaddr_in server_addr;
-    struct sockaddr src_addr;
-    int addrlen = sizeof src_addr;
+void* report_parser(void* args);
 
-    /*Create UDP socket*/
-    sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-    /*Configure server address struct*/
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(9555);
-    server_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
-
-    /*Bind socket with address struct*/
-    bind(sock_fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
-
-    while(1){
-        memset(buffer, 0, BUFFER_SIZE);
-        rx_size = recvfrom(sock_fd, buffer, BUFFER_SIZE, 0, &src_addr, &addrlen);
-        printf("received: %d bytes, str: %s\n", rx_size, buffer);
-    }
-
-    return 0;
-}
+#endif
