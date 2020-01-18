@@ -15,7 +15,7 @@ void* report_parser(void* args) {
             }
 
             uint8_t* cursor = packet;
-            
+
             //extract report header
             telemetry_report_t* report_header = (telemetry_report_t*) cursor;
             cursor += sizeof(telemetry_report_t);
@@ -68,6 +68,7 @@ void* report_parser(void* args) {
                 free(packet);
                 continue;
             }
+            printf("we've got %u hops", flow_info->hop_cnt);
             flow_info->src_ip = ntohl(ip->saddr);
             flow_info->dst_ip = ntohl(ip->daddr);
             flow_info->src_port = ntohs(ports->src_port);
@@ -75,6 +76,7 @@ void* report_parser(void* args) {
             flow_info->protocol = ip->protocol;
             flow_info->report_tstamp = ntohl(report_header->ingress_tstamp);
 
+            printf("stage 8\n");
             // extract int metadata
             int i;
             for (i = 0; i < flow_info->hop_cnt; ++i) {

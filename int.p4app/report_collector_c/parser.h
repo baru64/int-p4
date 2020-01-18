@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include "util.h"
 
+// TODO fix endianness
 typedef struct telemetry_report_t {
     uint8_t     ver:4,
                 length:4;
@@ -34,17 +35,19 @@ typedef struct INT_shim_t {
             rsvd2:2;
 } __attribute__((packed)) INT_shim_t;
 
+// TODO fix endianness
 typedef struct INT_metadata_hdr_t {
     uint8_t     ver:4,
                 rep:2,
                 c:1,
                 e:1;
-    uint16_t    m:1,
-                rsvd1:10,
-                hop_ml:5;
+    uint8_t     m:1,
+                rsvd1:7;
+    uint8_t     hop_ml:5,
+                rsvd2:3;
     uint8_t     rem_hop_cnt;
     uint16_t    ins_map;
-    uint16_t    rsvd2;
+    uint16_t    rsvd3;
 } __attribute__((packed)) INT_metadata_hdr_t;
 
 typedef struct INT_metadata_t {

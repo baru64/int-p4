@@ -8,6 +8,8 @@
 #include "util.h"
 #include "parser.h"
 
+// TODO implement hash map
+
 void* report_exporter(void* args);
 
 #endif
