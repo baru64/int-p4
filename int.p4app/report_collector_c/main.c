@@ -18,7 +18,8 @@
 #define PORT 9555
 #define SERVER_ADDR "0.0.0.0"
 
-dequeue packet_queue;
+dequeue parser_queue;
+dequeue exporter_queue;
 sig_atomic_t terminate = false;
 
 void sigterm_handler(int signum) {
@@ -31,9 +32,13 @@ int main() {
     struct sockaddr_in server_addr;
     struct sockaddr src_addr;
     int addrlen = sizeof src_addr;
+    
+    // threads
     pthread_t parser_thread;
     void* parser_result;
-    Context parser_context = {&packet_queue, &terminate};
+    pthread_t exporter_thread;
+    void* exporter_result;
+    Context context = {&parser_queue, &exporter_queue, &terminate};
 
     struct sigaction action;
     action.sa_handler = sigterm_handler;
@@ -41,14 +46,27 @@ int main() {
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGINT, &action, NULL);
   
-    if (dequeue_init(&packet_queue) != 0) {
-        perror("cannot create packet queue");
+    // initiate queues
+    if (dequeue_init(&parser_queue) != 0) {
+        perror("cannot create parser queue");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (dequeue_init(&exporter_queue) != 0) {
+        perror("cannot create exporter queue");
         exit(EXIT_FAILURE);
     }
 
+    // create threads
     if (pthread_create(&parser_thread, NULL, report_parser,
-                       (void*) &parser_context) != 0) {
+                       (void*) &context) != 0) {
         perror("cannot create parser thread");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (pthread_create(&exporter_thread, NULL, report_exporter,
+                       (void*) &context) != 0) {
+        perror("cannot create exporter thread");
         exit(EXIT_FAILURE);
     }
 
@@ -75,13 +93,16 @@ int main() {
         rx_size = recvfrom(sock_fd, buffer, BUFFER_SIZE, 0, &src_addr, &addrlen);
         if (rx_size > 0) {
             printf("received: %d bytes, first char: %c\n", rx_size, buffer[0]);
-            dequeue_push(&packet_queue, buffer, rx_size);
+            dequeue_push(&parser_queue, buffer, rx_size);
         }
     }
-    sem_post(&packet_queue.sem);
+    sem_post(&parser_queue.sem);
+    sem_post(&exporter_queue.sem);
     printf("exiting...\n");
     close(sock_fd);
     pthread_join(parser_thread, &parser_result);
-    dequeue_free(&packet_queue);
+    pthread_join(exporter_thread, &exporter_result);
+    dequeue_free(&parser_queue);
+    dequeue_free(&exporter_queue);
     return 0;
 }

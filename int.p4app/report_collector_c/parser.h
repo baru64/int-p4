@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
+#include <arpa/inet.h>
 #include "util.h"
 
 typedef struct telemetry_report_t {
@@ -50,6 +51,8 @@ typedef struct INT_metadata_t {
     uint32_t data;
 } __attribute__((packed)) INT_metadata_t;
 
+#define MAX_INT_HOP 6
+
 typedef struct flow_info_t {
     uint32_t    src_ip;
     uint32_t    dst_ip;
@@ -57,17 +60,19 @@ typedef struct flow_info_t {
     uint16_t    dst_port;
     uint8_t     protocol;
 
+    uint32_t    report_tstamp;
+
     uint8_t     hop_cnt;
 	uint32_t    flow_latency;
-    uint32_t*   switch_ids;
-    uint16_t*   ingress_ports;
-    uint16_t*   egress_ports;
-    uint32_t*   hop_latencies;
-    uint8_t*    queue_ids;
-    uint32_t*   queue_occups;
-    uint32_t*   ingress_tstamps;
-    uint32_t*   egress_tstamps;
-    uint32_t*   egress_tx_util;
+    uint32_t    switch_ids[MAX_INT_HOP];
+    uint16_t    ingress_ports[MAX_INT_HOP];
+    uint16_t    egress_ports[MAX_INT_HOP];
+    uint32_t    hop_latencies[MAX_INT_HOP];
+    uint8_t     queue_ids[MAX_INT_HOP];
+    uint32_t    queue_occups[MAX_INT_HOP];
+    uint32_t    ingress_tstamps[MAX_INT_HOP];
+    uint32_t    egress_tstamps[MAX_INT_HOP];
+    uint32_t    egress_tx_utils[MAX_INT_HOP];
 } flow_info_t;
 
 typedef struct ports_t {

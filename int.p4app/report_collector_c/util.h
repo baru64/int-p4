@@ -6,7 +6,8 @@
 #include "dequeue.h"
 
 typedef struct Context {
-    dequeue* dq;
+    dequeue* parser_dq;
+    dequeue* exporter_dq;
     sig_atomic_t* terminate;
 } Context;
 

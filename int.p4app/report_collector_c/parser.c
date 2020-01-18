@@ -5,7 +5,7 @@ void* report_parser(void* args) {
     printf("parser starts!\n");
     while (!*ctx->terminate) {
         int packet_size;
-        uint8_t* packet = dequeue_pop(ctx->dq, &packet_size);
+        uint8_t* packet = dequeue_pop(ctx->parser_dq, &packet_size);
         if (packet != NULL) {
             printf("parser got packet len,char: %i %c\n", packet_size, packet[0]);
             if (packet_size < MINIMAL_REPORT_SIZE) {
@@ -63,9 +63,66 @@ void* report_parser(void* args) {
             // create new flow_info
             flow_info_t* flow_info = (flow_info_t*) malloc(sizeof(flow_info_t));
             flow_info->hop_cnt = remaining_size / (int_hdr->hop_ml*4);
-            // TODO malloc for metadata
+            if (flow_info->hop_cnt > MAX_INT_HOP) {
+                printf("parser: too many hops");
+                free(packet);
+                continue;
+            }
+            flow_info->src_ip = ntohl(ip->saddr);
+            flow_info->dst_ip = ntohl(ip->daddr);
+            flow_info->src_port = ntohs(ports->src_port);
+            flow_info->dst_port = ntohs(ports->dst_port);
+            flow_info->protocol = ip->protocol;
+            flow_info->report_tstamp = ntohl(report_header->ingress_tstamp);
 
             // extract int metadata
+            int i;
+            for (i = 0; i < flow_info->hop_cnt; ++i) {
+                if (int_hdr->ins_map & 0x8000) {
+                    flow_info->switch_ids[i] = ntohl(*(uint32_t*)cursor);
+                    cursor += sizeof(uint32_t);
+                }
+                if (int_hdr->ins_map & 0x4000) {
+                    flow_info->ingress_ports[i] = ntohs(*(uint16_t*)cursor);
+                    cursor += sizeof(uint16_t);
+                    flow_info->egress_ports[i] = ntohs(*(uint16_t*)cursor);
+                    cursor += sizeof(uint16_t);
+                }
+                if (int_hdr->ins_map & 0x2000) {
+                    flow_info->hop_latencies[i] = ntohl(*(uint32_t*)cursor);
+                    cursor += sizeof(uint32_t);
+                }
+                if (int_hdr->ins_map & 0x1000) {
+                    uint32_t queue_metadata = *(uint32_t*)cursor;
+                    cursor += sizeof(uint32_t);
+                    flow_info->queue_ids[i] = (uint8_t)(queue_metadata >> 24);
+                    flow_info->queue_occups[i] = ntohl(queue_metadata & 0x00ffffff);
+                }
+                if (int_hdr->ins_map & 0x0800) {
+                    flow_info->ingress_tstamps[i] = ntohl(*(uint32_t*)cursor);
+                    cursor += sizeof(uint32_t);
+                }
+                if (int_hdr->ins_map & 0x0400) {
+                    flow_info->egress_tstamps[i] = ntohl(*(uint32_t*)cursor);
+                    cursor += sizeof(uint32_t);
+                }
+                if (int_hdr->ins_map & 0x0200) {
+                    // skip l2_port_ids
+                    cursor += sizeof(uint32_t) * 2;
+                }
+                if (int_hdr->ins_map & 0x0100) {
+                    flow_info->egress_tx_utils[i] = ntohl(*(uint32_t*)cursor);
+                    cursor += sizeof(uint32_t);
+                }
+            }
+
+            // set flow latency
+            flow_info->flow_latency = 
+                flow_info->egress_tstamps[flow_info->hop_cnt-1] - flow_info->ingress_tstamps[0];
+            
+            // enqueue flow_info for exporter
+            dequeue_push(ctx->exporter_dq, flow_info, sizeof(flow_info_t));
+            free(packet);
         }
     }
     printf("parser exiting...\n");
