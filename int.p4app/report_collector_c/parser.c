@@ -120,7 +120,7 @@ void* report_parser(void* args) {
 
             // set flow latency
             flow_info->flow_latency = 
-                flow_info->egress_tstamps[flow_info->hop_cnt-1] - flow_info->ingress_tstamps[0];
+                flow_info->egress_tstamps[0] - flow_info->ingress_tstamps[flow_info->hop_cnt-1];
             
             // enqueue flow_info for exporter
             dequeue_push(ctx->exporter_dq, flow_info, sizeof(flow_info_t));

@@ -1,0 +1,6 @@
+.vscode
+.vagrant
+*.log
+*.o
+*.swp
+int.p4app/report_collector_c/int_collector
