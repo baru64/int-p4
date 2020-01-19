@@ -75,8 +75,8 @@ void* report_parser(void* args) {
             flow_info->dst_port = ntohs(ports->dst_port);
             flow_info->protocol = ip->protocol;
             flow_info->report_tstamp = ntohl(report_header->ingress_tstamp);
+            flow_info->flow_latency = 0;
 
-            printf("stage 8\n");
             // extract int metadata
             int i;
             for (i = 0; i < flow_info->hop_cnt; ++i) {
@@ -92,6 +92,7 @@ void* report_parser(void* args) {
                 }
                 if (int_hdr->ins_map & 0x2000) {
                     flow_info->hop_latencies[i] = ntohl(*(uint32_t*)cursor);
+                    flow_info->flow_latency += flow_info->hop_latencies[i];
                     cursor += sizeof(uint32_t);
                 }
                 if (int_hdr->ins_map & 0x1000) {
@@ -116,12 +117,13 @@ void* report_parser(void* args) {
                     flow_info->egress_tx_utils[i] = ntohl(*(uint32_t*)cursor);
                     cursor += sizeof(uint32_t);
                 }
+                // link latency
+                if (((i-1) >= 0) && (int_hdr->ins_map & 0x0C)) {
+                    flow_info->link_latencies[i-1] =
+                        flow_info->ingress_tstamps[i] - flow_info->egress_tstamps[i-1];
+                }
             }
 
-            // set flow latency
-            flow_info->flow_latency = 
-                flow_info->egress_tstamps[0] - flow_info->ingress_tstamps[flow_info->hop_cnt-1];
-            
             // enqueue flow_info for exporter
             dequeue_push(ctx->exporter_dq, flow_info, sizeof(flow_info_t));
             free(packet);

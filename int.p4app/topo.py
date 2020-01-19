@@ -112,8 +112,10 @@ def main():
     
     print "run report collector on h3"
     h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
-    print "forward collector metrics outside"
+    print "forward collector metrics to prometheus"
     subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+    print "forward collector metrics to graphite"
+    subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'])
 
     for n in xrange(nb_hosts):
         h = net.get('h%d' % (n + 1))

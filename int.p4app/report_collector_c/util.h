@@ -11,4 +11,6 @@ typedef struct Context {
     sig_atomic_t* terminate;
 } Context;
 
+#define ABS(a,b) ((a>b)? (a-b):(b-a))
+
 #endif

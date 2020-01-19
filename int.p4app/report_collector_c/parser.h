@@ -76,6 +76,7 @@ typedef struct flow_info_t {
     uint32_t    ingress_tstamps[MAX_INT_HOP];
     uint32_t    egress_tstamps[MAX_INT_HOP];
     uint32_t    egress_tx_utils[MAX_INT_HOP];
+    uint32_t    link_latencies[MAX_INT_HOP-1];
 } flow_info_t;
 
 typedef struct ports_t {

@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <pthread.h>
 #include "util.h"
 #include "parser.h"
+//#include "graphite.h"
 
 typedef struct hash_map_entry {
     int     key_len;
@@ -30,6 +32,10 @@ int hash_map_insert_or_replace(hash_map* map, void* key, int key_len, void* valu
 void* hash_map_remove(hash_map* map, void* key, int key_len, int* value_len);
 void* hash_map_get(hash_map* map, void* key, int key_len, int* value_len);
 void hash_map_free(hash_map* map);
+
+#define LATENCY_THRESHOLD 50
+#define SW_LATENCY_THRESHOLD 5
+#define Q_OCCUP_THRESHOLD 1
 
 typedef struct flow_id {
     uint32_t src_ip;
