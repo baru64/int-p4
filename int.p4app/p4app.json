@@ -2,17 +2,17 @@
 	"program": "p4src/int.p4",
 	"language": "p4-16",
 	"targets": {
-		"custom": {
-			"program": "topo.py"
+		"py_prom": {
+            "use": "custom",
+			"program": "topo.py --exporter py_prometheus"
 		},
-		"multiswitch": {
-			"links": [["h1", "s1"], ["s1", "s2"], ["s2", "h2", 50]],
-			"hosts": {
-				"h1": {
-					"startup_sleep": 0.2,
-					"wait": true
-				}
-			}
+		"xdp_prom": {
+            "use": "custom",
+			"program": "topo.py --exporter xdp_prometheus"
+		},
+		"c_exporter": {
+            "use": "custom",
+			"program": "topo.py --exporter c_graphite"
 		}
 	}
 }

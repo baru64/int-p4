@@ -37,6 +37,8 @@ parser.add_argument('--json', help='Path to JSON config file',
                     type=str, action="store", required=True)
 parser.add_argument('--cli', help='Path to BM CLI',
                     type=str, action="store", required=True)
+parser.add_argument('--exporter', help='Exporter option',
+                    type=str, action="store", required=True)
 args = parser.parse_args()
 
 class MyTopo(Topo):
@@ -88,7 +90,7 @@ def readRegister(register, thrift_port, idx=None):
             return stdout
 
 
-def main():
+def main(arg):
     nb_hosts, nb_switches, links = read_topo()
     topo = MyTopo(args.behavioral_exe,
                   args.json,
@@ -110,12 +112,33 @@ def main():
     
     net.start()
     
-    print "run report collector on h3"
-    h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
-    print "forward collector metrics to prometheus"
-    subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
-    print "forward collector metrics to graphite"
-    subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'])
+    if arg == 'py_prometheus':
+        print "run pyton report collector on h3"
+        h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
+        print "forward collector metrics to prometheus"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+    elif arg == 'c_graphite':
+        print "run c report collector on h3"
+        h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
+        print "forward collector metrics to graphite"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'])
+    elif arg == 'xdp_prometheus':
+        print "run xdp report collector on h3"
+        h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_exporter.py &> /tmp/rx_log &")
+        print "forward collector metrics to prometheus"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+    elif arg == 'xdp_graphite':
+        print "run xdp report collector on h3"
+        print "not implemented"
+        # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_graphite.py &> /tmp/rx_log &")
+        # print "forward collector metrics to graphite"
+        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+    elif arg == 'xdp_influxdb':
+        print "run xdp report collector on h3"
+        print "not implemented"
+        # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
+        # print "forward collector metrics to graphite"
+        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
 
     for n in xrange(nb_hosts):
         h = net.get('h%d' % (n + 1))
@@ -160,4 +183,7 @@ def main():
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
-    main()
+    if args.exporter:
+        main(args.exporter)
+    else:
+        main('py_prometheus')
