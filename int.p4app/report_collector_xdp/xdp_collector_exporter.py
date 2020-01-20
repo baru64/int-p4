@@ -6,10 +6,10 @@ import ctypes
 
 MAX_INT_HOP = 4
 INT_DST_PORT = 9555
-FLOW_LATENCY_THRESHOLD = 100 
-HOP_LATENCY_THRESHOLD = 100
-LINK_LATENCY_THRESHOLD = 100
-QUEUE_OCCUPANCY_THRESHOLD = 0
+FLOW_LATENCY_THRESHOLD = 50 
+HOP_LATENCY_THRESHOLD = 5
+LINK_LATENCY_THRESHOLD = 5
+QUEUE_OCCUPANCY_THRESHOLD = 1
 
 class Event(ctypes.Structure):
     _fields_ = [
@@ -42,7 +42,7 @@ class Event(ctypes.Structure):
 class Collector:
 
     def __init__(self):
-        self.xdp_collector = BPF(src_file="xdp_report_collector.c", debug=1,
+        self.xdp_collector = BPF(src_file="xdp_report_collector.c", debug=0,
             cflags=[
                 "-w",
                 "-D_MAX_INT_HOP=%s" % MAX_INT_HOP,

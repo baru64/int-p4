@@ -4,7 +4,7 @@ int graphite_send(char* path, uint32_t value) {
     int sockfd; 
     struct sockaddr_in serv_addr; 
     char buffer[512] = {0}; 
-    snprintf(buffer, 512, "%s %u %li", path, value, time(0));
+    snprintf(buffer, 512, "%s %u %li\n", path, value, time(0));
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
     { 
         printf("exporter: socket creation error\n"); 
@@ -50,7 +50,7 @@ int graphite_send_link(link_id* lid, uint32_t value) {
 
 int graphite_send_queue(queue_id* qid, uint32_t value) {
     char path[256] = {0};
-    snprintf(path, 256, "int.flow_latency;switch_id=%u;queue_id=%hhu",
+    snprintf(path, 256, "int.queue_occupancy;switch_id=%u;queue_id=%hhu",
                 qid->switch_id, qid->queue_id);
     return graphite_send(path, value);
 }
