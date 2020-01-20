@@ -118,9 +118,9 @@ void* report_parser(void* args) {
                     cursor += sizeof(uint32_t);
                 }
                 // link latency
-                if (((i-1) >= 0) && (int_hdr->ins_map & 0x0C)) {
+                if (((i-1) >= 0) && (int_hdr->ins_map & 0xCC)) {
                     flow_info->link_latencies[i-1] =
-                        flow_info->ingress_tstamps[i] - flow_info->egress_tstamps[i-1];
+                        ABS(flow_info->ingress_tstamps[i-1], flow_info->egress_tstamps[i]);
                 }
             }
 

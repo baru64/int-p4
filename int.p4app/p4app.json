@@ -13,6 +13,10 @@
 		"c_exporter": {
             "use": "custom",
 			"program": "topo.py --exporter c_graphite"
+		},
+		"xdp_graphite": {
+            "use": "custom",
+			"program": "topo.py --exporter xdp_graphite"
 		}
 	}
 }

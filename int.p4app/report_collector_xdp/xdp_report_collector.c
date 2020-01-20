@@ -251,32 +251,6 @@ int report_collector(struct xdp_md *ctx) {
 
             flow_info.ingress_ports[i] =  hop_metadata[i].ingress_port_id;
             flow_info.egress_ports[i] =  hop_metadata[i].egress_port_id;
-            // // UPDATE LINK TABLE
-            if ((i-1) >= 0) {
-                struct link_id_t link_id = {};
-                link_id.egress_switch_id = hop_metadata[i].switch_id;
-                link_id.egress_port_id = hop_metadata[i].egress_port_id;
-                link_id.ingress_switch_id = hop_metadata[i-1].switch_id;
-                link_id.ingress_port_id = hop_metadata[i-1].ingress_port_id;
-
-                struct link_info_t link_info = {};
-                link_info.link_latency = hop_metadata[i].ingress_tstamp
-                                         - hop_metadata[i-1].egress_tstamp;
-
-                struct link_info_t *link_info_p = tb_link.lookup(&link_id);
-                if (unlikely(!link_info_p)) {
-                    update = 1;
-                } else if ( ABS(link_info.link_latency, link_info_p->link_latency)
-                            > LINK_LATENCY_THRESHOLD) {
-                    update = 1;
-                }
-
-                if (update) {
-                    tb_link.update(&link_id, &link_info);
-                    flow_info.e_link_latency = 1;
-                    update = 0;
-                }
-            }
         }
 
         if (int_metadata_hdr->ins_map & 0x2000) {
@@ -344,6 +318,32 @@ int report_collector(struct xdp_md *ctx) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);
             hop_metadata[i].egress_tstamp = ntohl(int_data->data);
             flow_info.egress_tstamps[i] = ntohl(int_data->data);
+        }
+        // // UPDATE LINK TABLE
+        if ((i-1) >= 0) {
+            struct link_id_t link_id = {};
+            link_id.egress_switch_id = hop_metadata[i].switch_id;
+            link_id.egress_port_id = hop_metadata[i].egress_port_id;
+            link_id.ingress_switch_id = hop_metadata[i-1].switch_id;
+            link_id.ingress_port_id = hop_metadata[i-1].ingress_port_id;
+
+            struct link_info_t link_info = {};
+            link_info.link_latency = 
+                ABS(hop_metadata[i-1].ingress_tstamp, hop_metadata[i].egress_tstamp);
+
+            struct link_info_t *link_info_p = tb_link.lookup(&link_id);
+            if (unlikely(!link_info_p)) {
+                update = 1;
+            } else if ( ABS(link_info.link_latency, link_info_p->link_latency)
+                        > LINK_LATENCY_THRESHOLD) {
+                update = 1;
+            }
+
+            if (update) {
+                tb_link.update(&link_id, &link_info);
+                flow_info.e_link_latency = 1;
+                update = 0;
+            }
         }
         if (int_metadata_hdr->ins_map & 0x0200) {
             CURSOR_ADVANCE(int_data, cursor, sizeof(*int_data), data_end);

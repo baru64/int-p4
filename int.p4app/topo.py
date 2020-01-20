@@ -129,12 +129,10 @@ def main(arg):
         subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
     elif arg == 'xdp_graphite':
         print "run xdp report collector on h3"
-        print "not implemented"
-        # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_graphite.py &> /tmp/rx_log &")
-        # print "forward collector metrics to graphite"
-        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+        h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_graphite.py h3-eth0 &> /tmp/rx_log &")
+        print "forward collector metrics to graphite"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2004,fork','TCP:graphite:2004'])
     elif arg == 'xdp_influxdb':
-        print "run xdp report collector on h3"
         print "not implemented"
         # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
         # print "forward collector metrics to graphite"

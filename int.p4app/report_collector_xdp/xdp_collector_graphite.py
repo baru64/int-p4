@@ -1,8 +1,11 @@
 import sys
 import argparse
-from bcc import BPF
-from prometheus_client import Gauge, start_http_server
 import ctypes
+import pickle
+import time
+import struct
+import socket
+from bcc import BPF
 
 MAX_INT_HOP = 4
 INT_DST_PORT = 9555
@@ -10,6 +13,9 @@ FLOW_LATENCY_THRESHOLD = 50
 HOP_LATENCY_THRESHOLD = 5
 LINK_LATENCY_THRESHOLD = 5
 QUEUE_OCCUPANCY_THRESHOLD = 1
+        
+GRAPHITE_HOST = '10.0.128.1'
+GRAPHITE_PORT = 2004
 
 class Event(ctypes.Structure):
     _fields_ = [
@@ -61,48 +67,18 @@ class Collector:
         self.tb_link = self.xdp_collector.get_table("tb_link")
         self.tb_queue = self.xdp_collector.get_table("tb_queue")
 
-        self.g_flow_latency = Gauge('flow_latency', 'total flow latency',
-            ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'ip_proto'])
-        self.g_switch_latency = Gauge('switch_latency', 'switch latency',
-            ['switch_id'])
-        self.g_link_latency = Gauge('link_latency', 'link latency',
-            ['egress_switch_id','egress_port_id',
-            'ingress_switch_id', 'ingress_port_id'])
-        self.g_queue_occupancy = Gauge('queue_occupancy', 'queue occupancy',
-            ['switch_id', "queue_id"])
-
-    def set_flow_latency(self, src_ip, dst_ip, src_port, dst_port, ip_proto):
-        key = self.tb_flow.Key(src_ip, dst_ip, src_port, dst_port, ip_proto)
-        val = self.tb_flow[key]
-        self.g_flow_latency.labels(
-            src_ip, dst_ip, src_port, dst_port, ip_proto
-        ).set(str(val.flow_latency))
-    
-    def set_switch_latency(self, switch_id, value):
-        # key = self.tb_switch.Key(switch_id)
-        # val = self.tb_switch[key] # TODO fix KeyError
-        self.g_switch_latency.labels(switch_id).set(value)
-
-    def set_link_latency(self,  egress_switch_id,
-                                egress_port_id,
-                                egress_tstamp,
-                                ingress_switch_id,
-                                ingress_port_id,
-                                ingress_tstamp):
-        key = self.tb_link.Key(
-            egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
-        )
-        val = self.tb_link[key]
-        self.g_link_latency.labels(
-            egress_switch_id, egress_port_id, ingress_switch_id, ingress_port_id
-        ).set(val.link_latency) #(ingress_tstamp - egress_tstamp)
-
-    def set_queue_occupancy(self, switch_id, queue_id, value):
-        # key = self.tb_queue.Key(switch_id, queue_id)
-        # val = self.tb_queue[key]
-        self.g_queue_occupancy.labels(
-            switch_id, queue_id
-        ).set(value)
+    def graphite_send(self, metrics):
+        payload = pickle.dumps(metrics, protocol=2)
+        header = struct.pack("!L", len(payload))
+        message = header + payload
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((GRAPHITE_HOST, GRAPHITE_PORT))
+            s.sendall(message)
+        except Exception as e:
+            print(e)
+        else:
+            s.close()
 
     def attach_iface(self, iface):
         self.ifaces.append(iface)
@@ -121,42 +97,47 @@ class Collector:
                 event.e_q_occupancy, event.e_link_latency)
             print(event.src_ip, event.dst_ip, event.src_port,
                 event.dst_port, event.ip_proto)
-            # TODO detect route change
+
+            metric_timestamp = int(time.time())
+            metrics = []
             if event.e_new_flow:
-                self.set_flow_latency(
-                    event.src_ip, event.dst_ip, event.src_port,
-                    event.dst_port, event.ip_proto
-                )
+                metrics.append((
+                    'int.flow_latency;src_ip={};dst_ip={};src_port={};dst_port={};protocol={}'.format(
+                        event.src_ip, event.dst_ip, event.src_port, event.dst_port, event.ip_proto
+                    ), (metric_timestamp, event.flow_latency)
+                ))
+
 
             if event.e_flow_latency:
-                self.set_flow_latency(
-                    event.src_ip, event.dst_ip, event.src_port,
-                    event.dst_port, event.ip_proto
-                )
+                metrics.append((
+                    'int.flow_latency;src_ip={};dst_ip={};src_port={};dst_port={};protocol={}'.format(
+                        event.src_ip, event.dst_ip, event.src_port, event.dst_port, event.ip_proto
+                    ), (metric_timestamp, event.flow_latency)
+                ))
                 
             if event.e_sw_latency:
                 for i in range(event.hop_cnt):
-                     self.set_switch_latency(
-                         event.switch_ids[i], event.hop_latencies[i]
-                    )
+                    metrics.append((
+                        'int.switch_latency;switch_id={}'.format(event.switch_ids[i]),
+                        (metric_timestamp, event.hop_latencies[i])
+                    ))
             if event.e_q_occupancy:
                 for i in range(event.hop_cnt):
-                    self.set_queue_occupancy(
-                        event.switch_ids[i], event.queue_ids[i],
-                        event.queue_occups[i]
-                    )
+                    metrics.append((
+                        'int.queue_occupancy;switch_id={};queue_id={}'.format(
+                            event.switch_ids[i], event.queue_ids[i]
+                        ), (metric_timestamp, event.queue_occups[i])
+                    ))
             
             if event.e_link_latency:
                 for i in range(event.hop_cnt - 1):
-                    self.set_link_latency(
-                        event.switch_ids[i+1],
-                        event.egress_ports[i+1],
-                        event.egress_tstamps[i+1],
-                        event.switch_ids[i],
-                        event.ingress_ports[i],
-                        event.ingress_tstamps[i]
-                    )
-
+                    metrics.append((
+                        'int.link_latency;egress_switch_id={};egress_port_id={};ingress_switch_id={};ingress_port_id={}'.format(
+                            event.switch_ids[i+1], event.egress_ports[i+1], event.switch_ids[i], event.ingress_ports[i]
+                        ), (metric_timestamp, abs(event.egress_tstamps[i+1] - event.ingress_tstamps[i]))
+                    ))
+            
+            self.graphite_send(metrics)
 
         self.xdp_collector["events"].open_perf_buffer(_process_event, page_cnt=512)
         
@@ -166,7 +147,6 @@ class Collector:
 ########
 
 if __name__ == "__main__":
-    start_http_server(8000)
     # handle arguments
     parser = argparse.ArgumentParser(description='INT collector.')
     parser.add_argument("iface")

@@ -12,7 +12,9 @@ elif [ $1 == 'py_prometheus'  ]; then
     p4app run ./int.p4app py_prom
     docker-compose down
 elif [ $1 == 'xdp_graphite'  ]; then
-    echo "not implemented"
+    docker-compose up -d grafana graphite
+    p4app run ./int.p4app xdp_graphite
+    docker-compose down
 elif [ $1 == 'xdp_influxdb'  ]; then
     echo "not implemented"
 fi
