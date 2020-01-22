@@ -1,6 +1,7 @@
 import sys
 import argparse
 import ctypes
+from ipaddress import IPv4Address
 from influxdb import InfluxDBClient
 from bcc import BPF
 
@@ -104,8 +105,8 @@ class Collector:
                 metrics.append({
                     'measurement': 'flow_latency',
                     'tags': {
-                        'src_ip': event.src_ip,
-                        'dst_ip': event.dst_ip,
+                        'src_ip': str(IPv4Address(event.src_ip)),
+                        'dst_ip': str(IPv4Address(event.dst_ip)),
                         'src_port': event.src_port,
                         'dst_port': event.dst_port,
                         'protocol': event.ip_proto

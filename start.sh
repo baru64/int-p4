@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ -z $1]; then
+if [ -z $1 ]; then
     echo "usage:           ./start.sh OPTION"
     echo ""
     echo "OPTIONS:"
@@ -14,6 +14,9 @@ if [ -z $1]; then
     echo "            xdp_influxdb"
 else
     if [ $1 == 'c_exporter' ]; then
+        if [ ! -e int.p4app/report_collector/int_collector ]; then
+            make -C int.p4app/report_collector/
+        fi
         docker-compose up -d grafana graphite
         p4app run ./int.p4app c_exporter
         docker-compose down

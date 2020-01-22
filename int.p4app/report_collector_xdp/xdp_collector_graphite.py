@@ -5,6 +5,7 @@ import pickle
 import time
 import struct
 import socket
+from ipaddress import IPv4Address
 from bcc import BPF
 
 MAX_INT_HOP = 4
@@ -103,7 +104,8 @@ class Collector:
             if event.e_new_flow:
                 metrics.append((
                     'int.flow_latency;src_ip={};dst_ip={};src_port={};dst_port={};protocol={}'.format(
-                        event.src_ip, event.dst_ip, event.src_port, event.dst_port, event.ip_proto
+                        str(IPv4Address(event.src_ip)), str(IPv4Address(event.dst_ip)),
+                        event.src_port, event.dst_port, event.ip_proto
                     ), (metric_timestamp, event.flow_latency)
                 ))
 

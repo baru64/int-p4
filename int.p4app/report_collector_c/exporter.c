@@ -162,6 +162,11 @@ void* report_exporter(void* args) {
     pthread_exit(0);
 }
 
+// TODO PERIODIC EXPORTER
+void* periodic_exporter(void* args) {
+
+}
+
 /******** hash map implementation ********/
 
 uint32_t djb2_hash(uint8_t* str, int strlen) {

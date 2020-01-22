@@ -1,5 +1,6 @@
 import sys
 import argparse
+from ipaddress import IPv4Address
 from bcc import BPF
 from prometheus_client import Gauge, start_http_server
 import ctypes
@@ -75,7 +76,7 @@ class Collector:
         key = self.tb_flow.Key(src_ip, dst_ip, src_port, dst_port, ip_proto)
         val = self.tb_flow[key]
         self.g_flow_latency.labels(
-            src_ip, dst_ip, src_port, dst_port, ip_proto
+            str(IPv4Address(src_ip)), str(IPv4Address(dst_ip)), src_port, dst_port, ip_proto
         ).set(str(val.flow_latency))
     
     def set_switch_latency(self, switch_id, value):
