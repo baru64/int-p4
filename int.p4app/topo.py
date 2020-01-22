@@ -121,7 +121,8 @@ def main(arg):
         print "run c report collector on h3"
         h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
         print "forward collector metrics to graphite"
-        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'])
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'],
+			 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_prometheus':
         print "run xdp report collector on h3"
         h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_exporter.py h3-eth0 &> /tmp/rx_log &")

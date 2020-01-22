@@ -11,6 +11,7 @@ Vagrant.configure("2") do |config|
   end
   config.vm.provision "shell", inline: <<-SHELL
     apt-get update
+    apt-get install -y make gcc
     apt-get install -y linux-image-4.15.0-72-generic linux-headers-4.15.0-72-generic
     apt-get install -y docker.io
     curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
