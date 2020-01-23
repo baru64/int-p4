@@ -47,6 +47,8 @@ int main() {
     void* parser_result;
     pthread_t exporter_thread;
     void* exporter_result;
+    pthread_t periodic_exporter_thread;
+    void* periodic_exporter_result;
     Context context = {
         &parser_queue,
         &exporter_queue,
@@ -113,6 +115,12 @@ int main() {
         perror("cannot create exporter thread");
         exit(EXIT_FAILURE);
     }
+    
+    if (pthread_create(&periodic_exporter_thread, NULL, periodic_exporter,
+                       (void*) &context) != 0) {
+        perror("cannot create periodic exporter thread");
+        exit(EXIT_FAILURE);
+    }
 
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_fd == -1) {
@@ -146,6 +154,7 @@ int main() {
     close(sock_fd);
     pthread_join(parser_thread, &parser_result);
     pthread_join(exporter_thread, &exporter_result);
+    pthread_join(periodic_exporter_thread, &periodic_exporter_result);
     dequeue_free(&parser_queue);
     dequeue_free(&exporter_queue);
 
