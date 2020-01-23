@@ -1,31 +1,19 @@
-#include "exporter.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <pthread.h>
+#include <time.h>
+#include <unistd.h>
+#include "util.h"
+#include "parser.h"
 #include "graphite.h"
+#include "exporter.h"
 
 #define INFLUXDB_ADDR "http://10.0.128.1:8086/write?db=int"
 
 void* report_exporter(void* args) {
     Context* ctx = (Context*) args;
-
-    hash_map flow_map;
-    if (hash_map_init(&flow_map, 1000000) != 0) {
-        printf("error allocating hash map\n");
-        pthread_exit(0);
-    }
-    hash_map switch_map;
-    if (hash_map_init(&switch_map, 10000) != 0) {
-        printf("error allocating hash map\n");
-        pthread_exit(0);
-    }
-    hash_map link_map;
-    if (hash_map_init(&link_map, 10000) != 0) {
-        printf("error allocating hash map\n");
-        pthread_exit(0);
-    }
-    hash_map queue_map;
-    if (hash_map_init(&queue_map, 100000) != 0) {
-        printf("error allocating hash map\n");
-        pthread_exit(0);
-    }
 
     printf("exporter starts!\n");
     while(!*ctx->terminate) {
@@ -55,7 +43,7 @@ void* report_exporter(void* args) {
                 .protocol = flow_info->protocol
             };
             int val_len;
-            uint32_t* flow_latency = hash_map_get(&flow_map, &fid,
+            uint32_t* flow_latency = hash_map_get(ctx->flow_map, &fid,
                                                   sizeof(flow_id), &val_len);
             if (flow_latency != NULL) {
                 if ( val_len == sizeof(uint32_t) && 
@@ -65,15 +53,13 @@ void* report_exporter(void* args) {
                     printf("new flow_latency: %u\n\n", flow_info->flow_latency);
                     flow_latency = (uint32_t*) malloc(sizeof(uint32_t));
                     *flow_latency = flow_info->flow_latency;
-                    hash_map_insert_or_replace(&flow_map, &fid, sizeof(flow_id),
+                    hash_map_insert_or_replace(ctx->flow_map, &fid, sizeof(flow_id),
                             flow_latency, sizeof(uint32_t));
                     
                     // send data to data base
 #ifndef INFLUXDB_EXPORTER
                     graphite_send_flow(&fid, *flow_latency);
 #endif
-
-
 #ifdef INFLUXDB_EXPORTER
                     influxdb_send_flow(curl, &fid, *flow_latency, &metric_timestamp);
 #endif
@@ -82,7 +68,7 @@ void* report_exporter(void* args) {
                 printf("new flow: %u\n", flow_info->flow_latency);
                 flow_latency = (uint32_t*) malloc(sizeof(uint32_t));
                 *flow_latency = flow_info->flow_latency;
-                hash_map_insert_or_replace(&flow_map, &fid, sizeof(flow_id),
+                hash_map_insert_or_replace(ctx->flow_map, &fid, sizeof(flow_id),
                         flow_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                 graphite_send_flow(&fid, *flow_latency);
@@ -97,7 +83,7 @@ void* report_exporter(void* args) {
                 switch_id sw_id = {
                     .switch_id = flow_info->switch_ids[i]
                 };
-                uint32_t* sw_latency = hash_map_get(&switch_map, &sw_id,
+                uint32_t* sw_latency = hash_map_get(ctx->switch_map, &sw_id,
                                                       sizeof(switch_id), &val_len);
                 if (sw_latency != NULL) {
                     if ( val_len == sizeof(uint32_t) && 
@@ -107,7 +93,7 @@ void* report_exporter(void* args) {
                         printf("new sw_latency: %u\n\n", flow_info->hop_latencies[i]);
                         sw_latency = (uint32_t*) malloc(sizeof(uint32_t));
                         *sw_latency = flow_info->hop_latencies[i];
-                        hash_map_insert_or_replace(&switch_map, &sw_id, sizeof(switch_id),
+                        hash_map_insert_or_replace(ctx->switch_map, &sw_id, sizeof(switch_id),
                                 sw_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                         graphite_send_switch(&sw_id, *sw_latency);
@@ -120,7 +106,7 @@ void* report_exporter(void* args) {
                     printf("new switch: %u\n", flow_info->hop_latencies[i]);
                     sw_latency = (uint32_t*) malloc(sizeof(uint32_t));
                     *sw_latency = flow_info->hop_latencies[i];
-                    hash_map_insert_or_replace(&switch_map, &sw_id, sizeof(switch_id),
+                    hash_map_insert_or_replace(ctx->switch_map, &sw_id, sizeof(switch_id),
                             sw_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                     graphite_send_switch(&sw_id, *sw_latency);
@@ -139,7 +125,7 @@ void* report_exporter(void* args) {
                     .egress_port_id = flow_info->egress_ports[i],
                     .egress_switch_id = flow_info->switch_ids[i]
                 };
-                uint32_t* link_latency = hash_map_get(&link_map, &link_id,
+                uint32_t* link_latency = hash_map_get(ctx->link_map, &link_id,
                                                       sizeof(link_id), &val_len);
                 if (link_latency != NULL) {
                     if ( val_len == sizeof(uint32_t) && 
@@ -149,7 +135,7 @@ void* report_exporter(void* args) {
                         printf("new link_latency: %u\n\n", flow_info->link_latencies[i]);
                         link_latency = (uint32_t*) malloc(sizeof(uint32_t));
                         *link_latency = flow_info->link_latencies[i];
-                        hash_map_insert_or_replace(&link_map, &link_id, sizeof(link_id),
+                        hash_map_insert_or_replace(ctx->link_map, &link_id, sizeof(link_id),
                                 link_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                         graphite_send_link(&link_id, *link_latency);
@@ -162,7 +148,7 @@ void* report_exporter(void* args) {
                     printf("new link: %u\n", flow_info->link_latencies[i]);
                     link_latency = (uint32_t*) malloc(sizeof(uint32_t));
                     *link_latency = flow_info->link_latencies[i];
-                    hash_map_insert_or_replace(&link_map, &link_id, sizeof(link_id),
+                    hash_map_insert_or_replace(ctx->link_map, &link_id, sizeof(link_id),
                             link_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                     graphite_send_link(&link_id, *link_latency);
@@ -179,7 +165,7 @@ void* report_exporter(void* args) {
                     .switch_id = flow_info->switch_ids[i],
                     .queue_id = flow_info->queue_ids[i]
                 };
-                uint32_t* q_occup = hash_map_get(&queue_map, &q_id,
+                uint32_t* q_occup = hash_map_get(ctx->queue_map, &q_id,
                                                       sizeof(queue_id), &val_len);
                 if (q_occup != NULL) {
                     if ( val_len == sizeof(uint32_t) && 
@@ -189,7 +175,7 @@ void* report_exporter(void* args) {
                         printf("new q_occup: %u\n\n", flow_info->queue_occups[i]);
                         q_occup = (uint32_t*) malloc(sizeof(uint32_t));
                         *q_occup = flow_info->queue_occups[i];
-                        hash_map_insert_or_replace(&queue_map, &q_id, sizeof(queue_id),
+                        hash_map_insert_or_replace(ctx->queue_map, &q_id, sizeof(queue_id),
                                 q_occup, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                         graphite_send_queue(&q_id, *q_occup);
@@ -202,7 +188,7 @@ void* report_exporter(void* args) {
                     printf("new queue: %u\n", flow_info->queue_occups[i]);
                     q_occup = (uint32_t*) malloc(sizeof(uint32_t));
                     *q_occup = flow_info->queue_occups[i];
-                    hash_map_insert_or_replace(&queue_map, &q_id, sizeof(queue_id),
+                    hash_map_insert_or_replace(ctx->queue_map, &q_id, sizeof(queue_id),
                             q_occup, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                     graphite_send_queue(&q_id, *q_occup);
@@ -227,7 +213,7 @@ void* report_exporter(void* args) {
 
 // TODO PERIODIC EXPORTER
 void* periodic_exporter(void* args) {
-
+    pthread_exit(0);
 }
 /************** syslog ***************/
 int syslog_send(char* ipaddr, int priority, char* host, char* process, char* msg) {

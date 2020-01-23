@@ -10,10 +10,10 @@
 #include <signal.h>
 #include <curl/curl.h>
 
-#include "util.h"
 #include "dequeue.h"
 #include "parser.h"
 #include "exporter.h"
+#include "util.h"
 
 #define BUFFER_SIZE 512
 #define PORT 9555
@@ -21,6 +21,10 @@
 
 dequeue parser_queue;
 dequeue exporter_queue;
+hash_map flow_map;
+hash_map switch_map;
+hash_map link_map;
+hash_map queue_map;
 sig_atomic_t terminate = false;
 
 void sigterm_handler(int signum) {
@@ -39,7 +43,15 @@ int main() {
     void* parser_result;
     pthread_t exporter_thread;
     void* exporter_result;
-    Context context = {&parser_queue, &exporter_queue, &terminate};
+    Context context = {
+        &parser_queue,
+        &exporter_queue,
+        &flow_map,
+        &switch_map,
+        &link_map,
+        &queue_map,
+        &terminate
+    };
 
     struct sigaction action;
     action.sa_handler = sigterm_handler;
@@ -61,6 +73,25 @@ int main() {
         perror("cannot create exporter queue");
         exit(EXIT_FAILURE);
     }
+    
+    // initiate hash maps
+    if (hash_map_init(&flow_map, 1000000) != 0) {
+        printf("error allocating hash map\n");
+        exit(EXIT_FAILURE);
+    }
+    if (hash_map_init(&switch_map, 10000) != 0) {
+        printf("error allocating hash map\n");
+        exit(EXIT_FAILURE);
+    }
+    if (hash_map_init(&link_map, 10000) != 0) {
+        printf("error allocating hash map\n");
+        exit(EXIT_FAILURE);
+    }
+    if (hash_map_init(&queue_map, 100000) != 0) {
+        printf("error allocating hash map\n");
+        exit(EXIT_FAILURE);
+    }
+
 
     // create threads
     if (pthread_create(&parser_thread, NULL, report_parser,

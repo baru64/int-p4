@@ -1,16 +1,6 @@
 #ifndef GRAPHITE_H
 #define GRAPHITE_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <time.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include "exporter.h"
-
 #define GRAPHITE_ADDR "10.0.128.1"
 #define GRAPHITE_PORT 2003
 
