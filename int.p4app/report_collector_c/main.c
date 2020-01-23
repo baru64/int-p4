@@ -25,6 +25,10 @@ hash_map flow_map;
 hash_map switch_map;
 hash_map link_map;
 hash_map queue_map;
+list flow_id_list;
+list switch_id_list;
+list link_id_list;
+list queue_id_list;
 sig_atomic_t terminate = false;
 
 void sigterm_handler(int signum) {
@@ -50,6 +54,10 @@ int main() {
         &switch_map,
         &link_map,
         &queue_map,
+        &flow_id_list,
+        &switch_id_list,
+        &link_id_list,
+        &queue_id_list,
         &terminate
     };
 

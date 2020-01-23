@@ -9,6 +9,7 @@
 #include "parser.h"
 #include "graphite.h"
 #include "exporter.h"
+#include "list.h"
 
 #define INFLUXDB_ADDR "http://10.0.128.1:8086/write?db=int"
 
@@ -93,8 +94,8 @@ void* report_exporter(void* args) {
                         printf("new sw_latency: %u\n\n", flow_info->hop_latencies[i]);
                         sw_latency = (uint32_t*) malloc(sizeof(uint32_t));
                         *sw_latency = flow_info->hop_latencies[i];
-                        hash_map_insert_or_replace(ctx->switch_map, &sw_id, sizeof(switch_id),
-                                sw_latency, sizeof(uint32_t));
+                        hash_map_insert_or_replace(ctx->switch_map, &sw_id,
+                            sizeof(switch_id), sw_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                         graphite_send_switch(&sw_id, *sw_latency);
 #endif
@@ -213,6 +214,91 @@ void* report_exporter(void* args) {
 
 // TODO PERIODIC EXPORTER
 void* periodic_exporter(void* args) {
+    Context* ctx = (Context*) args;
+    while(!*ctx->terminate) {
+        sleep(1);
+
+#ifdef INFLUXDB_EXPORTER
+        CURL *curl;
+        CURLcode res;
+        curl = curl_easy_init();
+        curl_easy_setopt(curl, CURLOPT_URL, INFLUXDB_ADDR);
+        struct timespec metric_timestamp;
+        clock_gettime(CLOCK_REALTIME, &metric_timestamp);
+#endif
+
+        list_el* fid = ctx->flow_id_list->first;
+        list_el* sid = ctx->switch_id_list->first;
+        list_el* lid = ctx->link_id_list->first;
+        list_el* qid = ctx->queue_id_list->first;
+        int val_len;
+        while(fid != NULL) {
+            uint32_t* flow_latency =
+                hash_map_get(ctx->flow_map, fid->data, fid->len, &val_len);
+            if (flow_latency == NULL) {
+                perror("error wrong key in list\n");
+                break;
+            }
+#ifndef INFLUXDB_EXPORTER
+            graphite_send_flow(fid->data, *flow_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+            influxdb_send_flow(curl, fid->data, *flow_latency, &metric_timestamp);
+#endif
+            fid = fid->next;
+        }
+
+        while(sid != NULL) {
+            uint32_t* switch_latency =
+                hash_map_get(ctx->switch_map, sid->data, sid->len, &val_len);
+            if (switch_latency == NULL) {
+                perror("error wrong key in list\n");
+                break;
+            }
+#ifndef INFLUXDB_EXPORTER
+            graphite_send_flow(sid->data, *switch_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+            influxdb_send_flow(curl, sid->data, *switch_latency, &metric_timestamp);
+#endif
+            sid = sid->next;
+        }
+
+        while(lid != NULL) {
+            uint32_t* link_latency =
+                hash_map_get(ctx->link_map, lid->data, lid->len, &val_len);
+            if (link_latency == NULL) {
+                perror("error wrong key in list\n");
+                break;
+            }
+#ifndef INFLUXDB_EXPORTER
+            graphite_send_flow(lid->data, *link_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+            influxdb_send_flow(curl, lid->data, *link_latency, &metric_timestamp);
+#endif
+            lid = lid->next;
+        }
+
+        while(qid != NULL) {
+            uint32_t* q_occup =
+                hash_map_get(ctx->queue_map, qid->data, qid->len, &val_len);
+            if (q_occup == NULL) {
+                perror("error wrong key in list\n");
+                break;
+            }
+#ifndef INFLUXDB_EXPORTER
+            graphite_send_flow(qid->data, *q_occup);
+#endif
+#ifdef INFLUXDB_EXPORTER
+            influxdb_send_flow(curl, qid->data, *q_occup, &metric_timestamp);
+#endif
+            qid = qid->next;
+        }
+#ifdef INFLUXDB_EXPORTER
+        curl_easy_cleanup(curl);
+#endif
+    }
     pthread_exit(0);
 }
 /************** syslog ***************/
