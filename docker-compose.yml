@@ -28,5 +28,17 @@ services:
           - "8126:8126"
         networks:
           - bridge
+
+    influxdb:
+        image:  influxdb
+        ports:
+          - "8083:8083"
+          - "8086:8086"
+        environment:
+          - INFLUXDB_ADMIN_USER=admin
+          - INFLUXDB_ADMIN_PASSWORD=p4_int
+          - INFLUXDB_DB=int
+        networks:
+          - bridge
 networks:
     bridge:

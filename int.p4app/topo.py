@@ -111,7 +111,8 @@ def main(arg):
     h3.cmd("ip link set up int-veth1")
     
     net.start()
-    
+   
+    # EXPORTER OPTIONS -------------------------------------------------------
     if arg == 'py_prometheus':
         print "run pyton report collector on h3"
         h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
@@ -122,7 +123,13 @@ def main(arg):
         h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
         print "forward collector metrics to graphite"
         subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'],
-			 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    elif arg == 'c_influxdb':
+        print "run c report collector on h3"
+        h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
+        print "forward collector metrics to influxdb"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
+	    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_prometheus':
         print "run xdp report collector on h3"
         h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_exporter.py h3-eth0 &> /tmp/rx_log &")
@@ -136,9 +143,11 @@ def main(arg):
     elif arg == 'xdp_influxdb':
         print "not implemented"
         # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
-        # print "forward collector metrics to graphite"
-        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
-
+        # print "forward collector metrics to influxdb"
+        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
+	#     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # ------------------------------------------------------------------------
+ 
     for n in xrange(nb_hosts):
         h = net.get('h%d' % (n + 1))
         for off in ["rx", "tx", "sg"]:

@@ -1,7 +1,7 @@
 #include "exporter.h"
 #include "graphite.h"
 
-#define INFLUXDB_ADDR "http://10.0.128.1:8086"
+#define INFLUXDB_ADDR "http://10.0.128.1:8086/write?db=int"
 
 void* report_exporter(void* args) {
     Context* ctx = (Context*) args;

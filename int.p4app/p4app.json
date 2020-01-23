@@ -14,6 +14,10 @@
             "use": "custom",
 			"program": "topo.py --exporter c_graphite"
 		},
+		"c_influxdb": {
+            "use": "custom",
+			"program": "topo.py --exporter c_influxdb"
+		},
 		"xdp_graphite": {
             "use": "custom",
 			"program": "topo.py --exporter xdp_graphite"
