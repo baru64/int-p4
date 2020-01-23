@@ -229,6 +229,35 @@ void* report_exporter(void* args) {
 void* periodic_exporter(void* args) {
 
 }
+/************** syslog ***************/
+int syslog_send(char* ipaddr, int priority, char* host, char* process, char* msg) {
+    int sockfd; 
+    char buffer[512] = {0}; 
+    struct sockaddr_in servaddr; 
+
+    time_t rawtime;
+    time(&rawtime);
+    char timestr[64] = {0};
+    strftime(timestr, 64, "%b %d %H:%M:%S", localtime(&rawtime));
+    snprintf(buffer, 512, "<%i>%s %s %s:%s",
+        priority, timestr, host, process, msg);
+  
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+  
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_port = htons(514); 
+    servaddr.sin_addr.s_addr = inet_addr(ipaddr); 
+      
+    sendto(sockfd, (const char *)buffer, strlen(buffer), 
+        MSG_CONFIRM, (const struct sockaddr *) &servaddr,  
+            sizeof(servaddr)); 
+    close(sockfd); 
+    return 0; 
+}
 
 /******** influxdb functions *********/
 CURLcode influxdb_send(CURL* curl, char* poststr) {

@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #include <curl/curl.h>
 #include "util.h"
 #include "parser.h"
@@ -74,5 +75,8 @@ CURLcode influxdb_send_link(CURL* curl, link_id* lid, uint32_t value,
                                     struct timespec* tstamp);
 CURLcode influxdb_send_queue(CURL* curl, queue_id* qid, uint32_t value,
                                     struct timespec* tstamp);
+
+int syslog_send(char* ipaddr, int priority,
+    char* host, char* process, char* msg);
 
 #endif
