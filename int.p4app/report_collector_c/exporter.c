@@ -1,10 +1,12 @@
 #include "exporter.h"
 #include "graphite.h"
 
+#define INFLUXDB_ADDR "http://10.0.128.1:8086"
+
 void* report_exporter(void* args) {
     Context* ctx = (Context*) args;
 
-    hash_map flow_map; //TODO move to context
+    hash_map flow_map;
     if (hash_map_init(&flow_map, 1000000) != 0) {
         printf("error allocating hash map\n");
         pthread_exit(0);
@@ -32,6 +34,18 @@ void* report_exporter(void* args) {
         if (flow_info != NULL) {
             printf("exporter got report src ip,port %x:%u\n",
                     flow_info->src_ip, flow_info->src_port);
+            
+#ifdef INFLUXDB_EXPORTER
+            CURL *curl;
+            CURLcode res;
+            curl = curl_easy_init();
+            curl_easy_setopt(curl, CURLOPT_URL, INFLUXDB_ADDR);
+
+            struct timespec metric_timestamp;
+            clock_gettime(CLOCK_REALTIME, &metric_timestamp);
+#endif
+
+
             // check flow latency
             flow_id fid = {
                 .src_ip = flow_info->src_ip,
@@ -53,7 +67,16 @@ void* report_exporter(void* args) {
                     *flow_latency = flow_info->flow_latency;
                     hash_map_insert_or_replace(&flow_map, &fid, sizeof(flow_id),
                             flow_latency, sizeof(uint32_t));
+                    
+                    // send data to data base
+#ifndef INFLUXDB_EXPORTER
                     graphite_send_flow(&fid, *flow_latency);
+#endif
+
+
+#ifdef INFLUXDB_EXPORTER
+                    influxdb_send_flow(curl, &fid, *flow_latency, &metric_timestamp);
+#endif
                 }
             } else {
                 printf("new flow: %u\n", flow_info->flow_latency);
@@ -61,7 +84,12 @@ void* report_exporter(void* args) {
                 *flow_latency = flow_info->flow_latency;
                 hash_map_insert_or_replace(&flow_map, &fid, sizeof(flow_id),
                         flow_latency, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                 graphite_send_flow(&fid, *flow_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                influxdb_send_flow(curl, &fid, *flow_latency, &metric_timestamp);
+#endif
             }
             // check switch latency
             int i;
@@ -81,7 +109,12 @@ void* report_exporter(void* args) {
                         *sw_latency = flow_info->hop_latencies[i];
                         hash_map_insert_or_replace(&switch_map, &sw_id, sizeof(switch_id),
                                 sw_latency, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                         graphite_send_switch(&sw_id, *sw_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                        influxdb_send_switch(curl, &sw_id, *sw_latency, &metric_timestamp);
+#endif
                     }
                 } else {
                     printf("new switch: %u\n", flow_info->hop_latencies[i]);
@@ -89,7 +122,12 @@ void* report_exporter(void* args) {
                     *sw_latency = flow_info->hop_latencies[i];
                     hash_map_insert_or_replace(&switch_map, &sw_id, sizeof(switch_id),
                             sw_latency, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                     graphite_send_switch(&sw_id, *sw_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                    influxdb_send_switch(curl, &sw_id, *sw_latency, &metric_timestamp);
+#endif
                 }
             }
 
@@ -113,7 +151,12 @@ void* report_exporter(void* args) {
                         *link_latency = flow_info->link_latencies[i];
                         hash_map_insert_or_replace(&link_map, &link_id, sizeof(link_id),
                                 link_latency, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                         graphite_send_link(&link_id, *link_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                        influxdb_send_link(curl, &link_id, *link_latency, &metric_timestamp);
+#endif
                     }
                 } else {
                     printf("new link: %u\n", flow_info->link_latencies[i]);
@@ -121,7 +164,12 @@ void* report_exporter(void* args) {
                     *link_latency = flow_info->link_latencies[i];
                     hash_map_insert_or_replace(&link_map, &link_id, sizeof(link_id),
                             link_latency, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                     graphite_send_link(&link_id, *link_latency);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                    influxdb_send_link(curl, &link_id, *link_latency, &metric_timestamp);
+#endif
                 }
             }
 
@@ -143,7 +191,12 @@ void* report_exporter(void* args) {
                         *q_occup = flow_info->queue_occups[i];
                         hash_map_insert_or_replace(&queue_map, &q_id, sizeof(queue_id),
                                 q_occup, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                         graphite_send_queue(&q_id, *q_occup);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                        influxdb_send_queue(curl, &q_id, *q_occup, &metric_timestamp);
+#endif
                     }
                 } else {
                     printf("new queue: %u\n", flow_info->queue_occups[i]);
@@ -151,13 +204,23 @@ void* report_exporter(void* args) {
                     *q_occup = flow_info->queue_occups[i];
                     hash_map_insert_or_replace(&queue_map, &q_id, sizeof(queue_id),
                             q_occup, sizeof(uint32_t));
+#ifndef INFLUXDB_EXPORTER
                     graphite_send_queue(&q_id, *q_occup);
+#endif
+#ifdef INFLUXDB_EXPORTER
+                    influxdb_send_queue(curl, &q_id, *q_occup, &metric_timestamp);
+#endif
                 }
             }
+
+#ifdef INFLUXDB_EXPORTER
+            curl_easy_cleanup(curl);
+#endif
 
             free(flow_info);
         }
     }
+
     printf("exporter exiting...\n");
     pthread_exit(0);
 }
@@ -165,6 +228,53 @@ void* report_exporter(void* args) {
 // TODO PERIODIC EXPORTER
 void* periodic_exporter(void* args) {
 
+}
+
+/******** influxdb functions *********/
+CURLcode influxdb_send(CURL* curl, char* poststr) {
+    CURLcode res;
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, poststr);
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+              curl_easy_strerror(res));
+    return res;
+}
+
+CURLcode influxdb_send_flow(CURL* curl, flow_id* fid, uint32_t value,
+                       struct timespec* tstamp) {
+    char poststr[256] = {0};
+    snprintf(poststr, 256, "flow_latency,src_ip=%u,dst_ip=%u,src_port=%hu," \
+                            "dst_port=%hu,protocol=%hhu value=%u %li%li",
+                fid->src_ip, fid->dst_ip, fid->src_port, fid->dst_port,
+                fid->protocol, value, tstamp->tv_sec, tstamp->tv_nsec);
+    return influxdb_send(curl, poststr);
+}
+CURLcode influxdb_send_switch(CURL* curl, switch_id* sid, uint32_t value,
+                         struct timespec* tstamp) {
+    char poststr[256] = {0};
+    snprintf(poststr, 256, "switch_latency,switch_id=%u value=%u %li%li",
+                    sid->switch_id, value, tstamp->tv_sec, tstamp->tv_nsec);
+    return influxdb_send(curl, poststr);
+}
+CURLcode influxdb_send_link(CURL* curl, link_id* lid, uint32_t value,
+                         struct timespec* tstamp) {
+    char poststr[256] = {0};
+    snprintf(poststr, 256, "link_latency,ingress_port_id=%u,ingress_switch_id=%u," \
+                         "egress_port_id=%u,egress_switch_id=%u value=%u %li%li",
+                lid->ingress_port_id, lid->ingress_switch_id,
+                lid->egress_port_id, lid->egress_switch_id,
+                value, tstamp->tv_sec, tstamp->tv_nsec);
+    return influxdb_send(curl, poststr);
+}
+CURLcode influxdb_send_queue(CURL* curl, queue_id* qid, uint32_t value,
+                         struct timespec* tstamp) {
+    char poststr[256] = {0};
+    snprintf(poststr, 256, "queue_occupancy,switch_id=%u,queue_id=%hhu " \
+                            "value=%u %li%li",
+                qid->switch_id, qid->queue_id, value,
+                tstamp->tv_sec, tstamp->tv_nsec);
+    return influxdb_send(curl, poststr);
 }
 
 /******** hash map implementation ********/

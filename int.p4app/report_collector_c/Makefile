@@ -1,10 +1,11 @@
 src = $(wildcard *.c)
 obj = $(src:.c=.o)
 
-LDFLAGS = -D_REENTRANT -Wall -lpthread
+CFLAGS += -D_REENTRANT  
+LDFLAGS = -Wall -lpthread -lcurl
 
 int_collector: $(obj)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 .PHONY: clean
 

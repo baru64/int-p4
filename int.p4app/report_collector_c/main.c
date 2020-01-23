@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
+#include <curl/curl.h>
 
 #include "util.h"
 #include "dequeue.h"
@@ -45,7 +46,11 @@ int main() {
     action.sa_flags = 0;
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGINT, &action, NULL);
-  
+
+#ifdef INFLUXDB_EXPORTER
+    curl_global_init(CURL_GLOBAL_ALL);
+#endif
+
     // initiate queues
     if (dequeue_init(&parser_queue) != 0) {
         perror("cannot create parser queue");
@@ -104,5 +109,10 @@ int main() {
     pthread_join(exporter_thread, &exporter_result);
     dequeue_free(&parser_queue);
     dequeue_free(&exporter_queue);
+
+#ifdef INFLUXDB_EXPORTER
+    curl_global_cleanup();
+#endif
+
     return 0;
 }

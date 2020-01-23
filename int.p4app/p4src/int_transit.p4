@@ -44,7 +44,9 @@ control INT_transit(inout headers hdr, inout metadata meta, inout standard_metad
     }
     action int_set_header_2() {
         hdr.int_hop_latency.setValid();
-        hdr.int_hop_latency.hop_latency = (bit<32>)standard_metadata.deq_timedelta;
+        //hdr.int_hop_latency.hop_latency = (bit<32>)standard_metadata.deq_timedelta;
+        hdr.int_hop_latency.hop_latency = (bit<32>)standard_metadata.egress_global_timestamp
+                                        - (bit<32>)standard_metadata.ingress_global_timestamp;
     }
     action int_set_header_3() {
         hdr.int_q_occupancy.setValid();
