@@ -68,7 +68,6 @@ void* report_parser(void* args) {
                 free(packet);
                 continue;
             }
-            printf("we've got %u hops", flow_info->hop_cnt);
             flow_info->src_ip = ntohl(ip->saddr);
             flow_info->dst_ip = ntohl(ip->daddr);
             flow_info->src_port = ntohs(ports->src_port);
@@ -118,7 +117,7 @@ void* report_parser(void* args) {
                     cursor += sizeof(uint32_t);
                 }
                 // link latency
-                if (((i-1) >= 0) && (int_hdr->ins_map & 0xCC)) {
+                if (((i-1) >= 0) && (int_hdr->ins_map & 0xCC00)) {
                     flow_info->link_latencies[i-1] =
                         ABS(flow_info->ingress_tstamps[i-1], flow_info->egress_tstamps[i]);
                 }

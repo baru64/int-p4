@@ -39,8 +39,11 @@ int graphite_send(char* path, uint32_t value) {
 
 int graphite_send_flow(flow_id* fid, uint32_t value) {
     char path[256] = {0};
-    snprintf(path, 256, "int.flow_latency;src_ip=%u;dst_ip=%u;src_port=%hu;dst_port=%hu;protocol=%hhu",
-                fid->src_ip, fid->dst_ip, fid->src_port, fid->dst_port, fid->protocol);
+    char ipstr[16] = {0};
+    char ipstr2[16] = {0};
+    snprintf(path, 256, "int.flow_latency;src_ip=%s;dst_ip=%s;src_port=%hu;dst_port=%hu;protocol=%hhu",
+                ip2str(fid->src_ip, ipstr), ip2str(fid->dst_ip, ipstr2),
+                fid->src_port, fid->dst_port, fid->protocol);
     return graphite_send(path, value);
 }
 

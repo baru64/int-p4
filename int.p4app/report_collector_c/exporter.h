@@ -70,5 +70,6 @@ CURLcode influxdb_send_queue(CURL* curl, queue_id* qid, uint32_t value,
 
 int syslog_send(char* ipaddr, int priority,
     char* host, char* process, char* msg);
+char* ip2str(uint32_t ipaddr, char* ipstr);
 
 #endif

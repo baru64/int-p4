@@ -15,6 +15,7 @@
 
 void* report_exporter(void* args) {
     Context* ctx = (Context*) args;
+    char ipstr[16] = {0};
 
     printf("exporter starts!\n");
     while(!*ctx->terminate) {
@@ -112,7 +113,7 @@ void* report_exporter(void* args) {
                     printf("new switch: %u\n", flow_info->hop_latencies[i]);
                     sw_latency = (uint32_t*) malloc(sizeof(uint32_t));
                     *sw_latency = flow_info->hop_latencies[i];
-                    hash_map_insert_or_replace(ctx->switch_map, &sw_id, sizeof(switch_id),
+                    hash_map_insert_or_replace(ctx->switch_map, sw_id, sizeof(switch_id),
                             sw_latency, sizeof(uint32_t));
 #ifndef INFLUXDB_EXPORTER
                     graphite_send_switch(sw_id, *sw_latency);
@@ -238,7 +239,6 @@ void* periodic_exporter(void* args) {
         sleep(20);
 #endif
 
-
 #ifdef INFLUXDB_EXPORTER
         CURL *curl;
         CURLcode res;
@@ -257,7 +257,7 @@ void* periodic_exporter(void* args) {
             uint32_t* flow_latency =
                 hash_map_get(ctx->flow_map, fid->data, fid->len, &val_len);
             if (flow_latency == NULL) {
-                perror("error wrong key in list\n");
+                perror("error wrong key in flow list\n");
                 break;
             }
 #ifndef INFLUXDB_EXPORTER
@@ -273,14 +273,14 @@ void* periodic_exporter(void* args) {
             uint32_t* switch_latency =
                 hash_map_get(ctx->switch_map, sid->data, sid->len, &val_len);
             if (switch_latency == NULL) {
-                perror("error wrong key in list\n");
+                perror("error wrong key in switch list\n");
                 break;
             }
 #ifndef INFLUXDB_EXPORTER
-            graphite_send_flow(sid->data, *switch_latency);
+            graphite_send_switch(sid->data, *switch_latency);
 #endif
 #ifdef INFLUXDB_EXPORTER
-            influxdb_send_flow(curl, sid->data, *switch_latency, &metric_timestamp);
+            influxdb_send_switch(curl, sid->data, *switch_latency, &metric_timestamp);
 #endif
             sid = sid->next;
         }
@@ -289,14 +289,14 @@ void* periodic_exporter(void* args) {
             uint32_t* link_latency =
                 hash_map_get(ctx->link_map, lid->data, lid->len, &val_len);
             if (link_latency == NULL) {
-                perror("error wrong key in list\n");
+                perror("error wrong key in link list\n");
                 break;
             }
 #ifndef INFLUXDB_EXPORTER
-            graphite_send_flow(lid->data, *link_latency);
+            graphite_send_link(lid->data, *link_latency);
 #endif
 #ifdef INFLUXDB_EXPORTER
-            influxdb_send_flow(curl, lid->data, *link_latency, &metric_timestamp);
+            influxdb_send_link(curl, lid->data, *link_latency, &metric_timestamp);
 #endif
             lid = lid->next;
         }
@@ -305,14 +305,14 @@ void* periodic_exporter(void* args) {
             uint32_t* q_occup =
                 hash_map_get(ctx->queue_map, qid->data, qid->len, &val_len);
             if (q_occup == NULL) {
-                perror("error wrong key in list\n");
+                perror("error wrong key in queue list\n");
                 break;
             }
 #ifndef INFLUXDB_EXPORTER
-            graphite_send_flow(qid->data, *q_occup);
+            graphite_send_queue(qid->data, *q_occup);
 #endif
 #ifdef INFLUXDB_EXPORTER
-            influxdb_send_flow(curl, qid->data, *q_occup, &metric_timestamp);
+            influxdb_send_queue(curl, qid->data, *q_occup, &metric_timestamp);
 #endif
             qid = qid->next;
         }
@@ -322,6 +322,14 @@ void* periodic_exporter(void* args) {
     }
     pthread_exit(0);
 }
+/* uint32_t to IPv4 string */
+char* ip2str(uint32_t ipaddr, char* ipstr) {
+    uint8_t* ipbytes = (uint8_t*)&ipaddr;
+    snprintf(ipstr, 16, "%hhu.%hhu.%hhu.%hhu",
+             ipbytes[3], ipbytes[2], ipbytes[1], ipbytes[0]);
+    return ipstr;
+}
+
 /************** syslog ***************/
 int syslog_send(char* ipaddr, int priority, char* host, char* process, char* msg) {
     int sockfd; 
@@ -366,10 +374,13 @@ CURLcode influxdb_send(CURL* curl, char* poststr) {
 CURLcode influxdb_send_flow(CURL* curl, flow_id* fid, uint32_t value,
                        struct timespec* tstamp) {
     char poststr[256] = {0};
-    snprintf(poststr, 256, "flow_latency,src_ip=%u,dst_ip=%u,src_port=%hu," \
+    char ipstr[16] = {0};
+    char ipstr2[16] = {0};
+    snprintf(poststr, 256, "flow_latency,src_ip=%s,dst_ip=%s,src_port=%hu," \
                             "dst_port=%hu,protocol=%hhu value=%u %li%li",
-                fid->src_ip, fid->dst_ip, fid->src_port, fid->dst_port,
-                fid->protocol, value, tstamp->tv_sec, tstamp->tv_nsec);
+                ip2str(fid->src_ip, ipstr), ip2str(fid->dst_ip, ipstr2),
+                fid->src_port, fid->dst_port, fid->protocol, value,
+                tstamp->tv_sec, tstamp->tv_nsec);
     return influxdb_send(curl, poststr);
 }
 CURLcode influxdb_send_switch(CURL* curl, switch_id* sid, uint32_t value,
