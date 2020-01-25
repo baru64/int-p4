@@ -6,6 +6,7 @@ int list_init(list* ls, int max_len) {
     ls->len = 0;
     ls->first = NULL;
     ls->last = NULL;
+    return 0;
 }
 
 int list_insert(list* ls, void* data, int datalen) {

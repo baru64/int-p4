@@ -14,6 +14,7 @@
 #include "parser.h"
 #include "exporter.h"
 #include "util.h"
+#include "list.h"
 
 #define BUFFER_SIZE 512
 #define PORT 9555
@@ -102,6 +103,23 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    // initiate lists
+    if (list_init(&flow_id_list, 10000) != 0) {
+        printf("error allocating list\n");
+        exit(EXIT_FAILURE);
+    }
+    if (list_init(&switch_id_list, 100) != 0) {
+        printf("error allocating list\n");
+        exit(EXIT_FAILURE);
+    }
+    if (list_init(&link_id_list, 100) != 0) {
+        printf("error allocating list\n");
+        exit(EXIT_FAILURE);
+    }
+    if (list_init(&queue_id_list, 1000) != 0) {
+        printf("error allocating list\n");
+        exit(EXIT_FAILURE);
+    }
 
     // create threads
     if (pthread_create(&parser_thread, NULL, report_parser,
