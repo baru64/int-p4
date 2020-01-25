@@ -16,9 +16,7 @@ if [ -z $1 ]; then
     echo "            xdp_influxdb"
 else
     if [ $1 == 'c_graphite' ]; then
-        if [ ! -e int.p4app/report_collector_c/int_collector ]; then
-            make -C int.p4app/report_collector_c/
-        fi
+        make -C int.p4app/report_collector_c/
         docker-compose up -d grafana graphite
         p4app run ./int.p4app c_exporter
         docker-compose down

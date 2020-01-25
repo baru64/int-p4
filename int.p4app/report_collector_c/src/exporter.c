@@ -363,9 +363,9 @@ int syslog_send(char* ipaddr, int priority, char* host, char* process, char* msg
 /******** influxdb functions *********/
 CURLcode influxdb_send(CURL* curl, char* poststr) {
     CURLcode res;
-//#ifdef _DEBUG
+#ifdef _DEBUG
     printf("%s\n", poststr);
-//#endif
+#endif
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, poststr);
     res = curl_easy_perform(curl);
     if(res != CURLE_OK)
