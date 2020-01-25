@@ -117,35 +117,38 @@ def main(arg):
         print "run pyton report collector on h3"
         h3.cmd("/usr/bin/python3 /tmp/report_rx.py &> /tmp/rx_log &")
         print "forward collector metrics to prometheus"
-        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'],
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'c_graphite':
         print "run c report collector on h3"
         h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
         print "forward collector metrics to graphite"
         subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2003,fork','TCP:graphite:2003'],
-	     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'c_influxdb':
         print "run c report collector on h3"
         h3.cmd("/tmp/report_collector_c/int_collector &> /tmp/rx_log &")
         print "forward collector metrics to influxdb"
         subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
-	    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_prometheus':
         print "run xdp report collector on h3"
         h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_exporter.py h3-eth0 &> /tmp/rx_log &")
         print "forward collector metrics to prometheus"
-        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'])
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8000,fork','TCP:10.0.128.3:8000'],
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_graphite':
         print "run xdp report collector on h3"
         h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_graphite.py h3-eth0 &> /tmp/rx_log &")
         print "forward collector metrics to graphite"
-        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2004,fork','TCP:graphite:2004'])
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:2004,fork','TCP:graphite:2004'],
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_influxdb':
-        print "not implemented"
-        # h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
-        # print "forward collector metrics to influxdb"
-        # subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
-	#     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print "run xdp report collector on h3"
+        h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
+        print "forward collector metrics to influxdb"
+        subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
+	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     # ------------------------------------------------------------------------
  
     for n in xrange(nb_hosts):

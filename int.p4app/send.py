@@ -56,6 +56,8 @@ def send_random_traffic(dst):
         src_ip = "10.0.2.2"
     elif src_mac =="00:00:00:00:03:03":
         src_ip = "10.0.3.3"
+    elif src_mac =="00:00:00:00:04:04":
+        src_ip = "10.0.4.4"
     else:
         print ("Invalid source host")
         sys.exit(1)
@@ -69,6 +71,9 @@ def send_random_traffic(dst):
     elif dst == 'h3':
         dst_mac = "00:00:00:00:03:03"
         dst_ip = "10.0.3.3"
+    elif dst == 'h4':
+        dst_mac = "00:00:00:00:04:04"
+        dst_ip = "10.0.4.4"
     else:
         print ("Invalid host to send to")
         sys.exit(1)

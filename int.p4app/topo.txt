@@ -1,8 +1,12 @@
-switches 3 
-hosts 3
+switches 4 
+hosts 4
 h1 s1
 h2 s2
 h3 s3
+h4 s4
 s1 s2
 s1 s3
 s2 s3
+s1 s4
+s2 s4
+s3 s4
