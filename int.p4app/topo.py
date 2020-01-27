@@ -163,6 +163,7 @@ def main(arg):
         h.cmd("sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
         h.cmd("sysctl -w net.ipv4.tcp_congestion_control=reno")
         h.cmd("iptables -I OUTPUT -p icmp --icmp-type destination-unreachable -j DROP")
+        h.cmd("ip link set mtu 1400 dev h%d-eth0" % (n + 1))
 
     sleep(1)
 
