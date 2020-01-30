@@ -22,8 +22,6 @@ void* report_exporter(void* args) {
         int info_size;
         flow_info_t* flow_info = dequeue_pop(ctx->exporter_dq, &info_size);
         if (flow_info != NULL) {
-            printf("exporter got report src ip,port %x:%u\n",
-                    flow_info->src_ip, flow_info->src_port);
             
 #ifdef INFLUXDB_EXPORTER
             CURL *curl;

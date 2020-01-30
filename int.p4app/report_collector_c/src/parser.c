@@ -7,7 +7,6 @@ void* report_parser(void* args) {
         int packet_size;
         uint8_t* packet = dequeue_pop(ctx->parser_dq, &packet_size);
         if (packet != NULL) {
-            printf("parser got packet len,char: %i %c\n", packet_size, packet[0]);
             if (packet_size < MINIMAL_REPORT_SIZE) {
                 printf("parser: packet too small for a report\n");
                 free(packet);
