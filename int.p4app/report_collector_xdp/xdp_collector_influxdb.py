@@ -1,6 +1,7 @@
 import sys
 import argparse
 import ctypes
+import time
 from ipaddress import IPv4Address
 from influxdb import InfluxDBClient
 from bcc import BPF
@@ -99,7 +100,7 @@ class Collector:
             print(event.src_ip, event.dst_ip, event.src_port,
                 event.dst_port, event.ip_proto)
 
-            metric_timestamp = time.time()*1000000
+            metric_timestamp = int(time.time()*1000000000)
             metrics = []
             if event.e_new_flow:
                 metrics.append({

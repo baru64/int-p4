@@ -21,6 +21,10 @@
 		"xdp_graphite": {
             "use": "custom",
 			"program": "topo.py --exporter xdp_graphite"
+		},
+		"xdp_influxdb": {
+            "use": "custom",
+			"program": "topo.py --exporter xdp_influxdb"
 		}
 	}
 }

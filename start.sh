@@ -38,6 +38,8 @@ else
         p4app run ./int.p4app xdp_graphite
         docker-compose down
     elif [ $1 == 'xdp_influxdb'  ]; then
-        echo "not implemented"
+        docker-compose up -d grafana influxdb
+        p4app run ./int.p4app xdp_influxdb
+        docker-compose down
     fi
 fi

@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# 01-2020
+# Modified by Bartosz Krakowiak <bartosz_krakowiak at protonmail com>
+# - added options for P4 In-band Network Telemetry demo
+
 from mininet.net import Mininet
 from mininet.link import Intf
 from mininet.topo import Topo
@@ -145,7 +149,7 @@ def main(arg):
 	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     elif arg == 'xdp_influxdb':
         print "run xdp report collector on h3"
-        h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py &> /tmp/rx_log &")
+        h3.cmd("/usr/bin/python /tmp/report_collector_xdp/xdp_collector_influxdb.py h3-eth0 &> /tmp/rx_log &")
         print "forward collector metrics to influxdb"
         subprocess.Popen(['/usr/bin/socat','TCP-LISTEN:8086,fork','TCP:influxdb:8086'],
 	        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
