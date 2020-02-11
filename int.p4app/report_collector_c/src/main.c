@@ -15,6 +15,7 @@
 #include "exporter.h"
 #include "util.h"
 #include "list.h"
+#include "hash_map.h"
 
 #define BUFFER_SIZE 512
 #define PORT 9555

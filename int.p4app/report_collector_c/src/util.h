@@ -6,6 +6,7 @@
 #include "dequeue.h"
 #include "exporter.h"
 #include "list.h"
+#include "hash_map.h"
 
 typedef struct Context {
     dequeue*    parser_dq;
